@@ -1,10 +1,12 @@
 import { Outlet, useLocation, useNavigate } from "react-router";
-import { BottomNavigation, BottomNavigationAction, Box, AppBar, Toolbar, Typography } from "@mui/material";
-import { Home, VideoLibrary, Map as MapIcon, Person } from "@mui/icons-material";
+import { BottomNavigation, BottomNavigationAction, Box, AppBar, Toolbar, Typography, IconButton } from "@mui/material";
+import { Home, VideoLibrary, Map as MapIcon, Person, Logout } from "@mui/icons-material";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const getActiveTab = () => {
     if (location.pathname === "/") return 0;
@@ -19,6 +21,11 @@ export default function Layout() {
     navigate(paths[newValue]);
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate("/auth");
+  };
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <AppBar position="static" sx={{ bgcolor: "#ff6b35" }}>
@@ -26,6 +33,9 @@ export default function Layout() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
             FoodSpot
           </Typography>
+          <IconButton color="inherit" onClick={handleLogout}>
+            <Logout />
+          </IconButton>
         </Toolbar>
       </AppBar>
 

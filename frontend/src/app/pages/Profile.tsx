@@ -20,6 +20,7 @@ import {
   Share,
 } from "@mui/icons-material";
 import { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 
 const mockUserPosts = [
   "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=400",
@@ -42,12 +43,16 @@ const mockSavedPosts = [
 
 export default function Profile() {
   const [currentTab, setCurrentTab] = useState(0);
+  const { user } = useAuth();
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   };
 
   const displayPosts = currentTab === 0 ? mockUserPosts : mockSavedPosts;
+
+  const userName = user?.name || "User";
+  const userInitial = userName.charAt(0).toUpperCase();
 
   return (
     <Box sx={{ maxWidth: 600, mx: "auto", pb: 2 }}>
@@ -62,7 +67,7 @@ export default function Profile() {
               fontWeight: 700,
             }}
           >
-            A
+            {userInitial}
           </Avatar>
           <IconButton sx={{ alignSelf: "flex-start" }}>
             <Settings />
@@ -70,10 +75,10 @@ export default function Profile() {
         </Box>
 
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-          Anh Nguyen
+          {userName}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          @anhnguyen • Foodie & Traveler
+          @{userName.toLowerCase().replace(" ", "")} • Foodie & Traveler
         </Typography>
 
         <Typography variant="body2" sx={{ mb: 2 }}>
