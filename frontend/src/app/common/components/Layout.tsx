@@ -1,7 +1,7 @@
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { BottomNavigation, BottomNavigationAction, Box, AppBar, Toolbar, Typography, IconButton } from "@mui/material";
 import { Home, VideoLibrary, Map as MapIcon, Person, Logout } from "@mui/icons-material";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function Layout() {
   const location = useLocation();

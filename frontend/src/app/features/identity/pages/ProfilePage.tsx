@@ -20,7 +20,7 @@ import {
   Share,
 } from "@mui/icons-material";
 import { useState } from "react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../../../contexts/AuthContext";
 
 const mockUserPosts = [
   "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=400",

@@ -22,7 +22,7 @@ import {
   Restaurant,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../../../contexts/AuthContext";
 
 export default function Auth() {
   const [authMode, setAuthMode] = useState(0);
