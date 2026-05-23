@@ -6,6 +6,7 @@ import MapPage from "./features/discovery/pages/MapPage";
 import ProfilePage from "./features/identity/pages/ProfilePage";
 import AuthPage from "./features/identity/pages/AuthPage";
 
+
 export const router = createBrowserRouter([
   {
     path: "/auth",
