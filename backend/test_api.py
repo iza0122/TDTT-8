@@ -16,7 +16,7 @@ if sys.platform.startswith("win"):
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from backend.core.database import SessionLocal
-from backend.core.all_models import Video, Like, Comment, Merchant
+from backend.core.all_models import Video, Like, Comment, Merchant, User
 from backend.modules.search_interact import services, schemas
 
 def run_tests():
@@ -75,13 +75,17 @@ def run_tests():
         print("\n[TEST 2] Thử nghiệm Thả tim Video (Like Service)...")
         video = db.query(Video).first()
         assert video is not None, "Không tìm thấy video nào trong DB để test!"
-        user_id = 2 # Mock user 2
+        # Lấy 2 user thực tế trong DB thay vì hardcode ID để tránh lỗi ForeignKey do ID tăng tự động
+        users_in_db = db.query(User).limit(2).all()
+        assert len(users_in_db) >= 2, "Không tìm thấy đủ 2 users trong DB để test!"
+        user_id = users_in_db[0].id
+        second_user_id = users_in_db[1].id
         
         # Check initial database state
         like_in_db_before = db.query(Like).filter(Like.video_id == video.id, Like.user_id == user_id).first()
         initially_liked = like_in_db_before is not None
         initial_likes = db.query(Like).filter(Like.video_id == video.id).count()
-        print(f"   Số lượt thích ban đầu của video ID {video.id}: {initial_likes} (User 2 đã thích chưa: {initially_liked})")
+        print(f"   Số lượt thích ban đầu của video ID {video.id}: {initial_likes} (User {user_id} đã thích chưa: {initially_liked})")
 
         # Toggle Like 1
         res1 = services.toggle_like(db=db, video_id=video.id, user_id=user_id)
@@ -118,7 +122,7 @@ def run_tests():
             content="Chuẩn luôn bạn ơi, nhất định phải thử nha!",
             parent_id=new_comment.id
         )
-        reply_comment = services.create_comment(db=db, video_id=video.id, user_id=3, comment_data=reply_input)
+        reply_comment = services.create_comment(db=db, video_id=video.id, user_id=second_user_id, comment_data=reply_input)
         print(f"-> Trả lời bình luận thành công! ID: {reply_comment.id}, Parent ID: {reply_comment.parent_id}, Nội dung: '{reply_comment.content}'")
         assert reply_comment.parent_id == new_comment.id
 
