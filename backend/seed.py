@@ -20,7 +20,8 @@ if sys.platform.startswith("win"):
 from backend.core.database import SessionLocal, engine, Base
 from backend.core.all_models import User, Merchant, Menu, Video, Like, Comment, Campaign
 
-# Đảm bảo bảng đã tồn tại
+# Xóa và tạo lại tất cả các bảng để đảm bảo cập nhật thay đổi schema mới
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 def seed_database():
@@ -39,11 +40,11 @@ def seed_database():
 
         print("\n--- Creating mock users ---")
         users = [
-            User(email="admin@foodreview.com", full_name="Nguyễn Admin", role="admin", google_id="g_admin_123", avatar_url="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"),
-            User(email="reviewer1@foodreview.com", full_name="Khoa Pug Review", role="reviewer", google_id="g_rev_1", avatar_url="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150"),
-            User(email="reviewer2@foodreview.com", full_name="Ninh Titop", role="reviewer", google_id="g_rev_2", avatar_url="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150"),
-            User(email="merchant1@foodreview.com", full_name="Chủ Quán Ba Đạt", role="merchant", google_id="g_mer_1", avatar_url="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"),
-            User(email="merchant2@foodreview.com", full_name="Bà Sáu Bán Chè", role="merchant", google_id="g_mer_2", avatar_url="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150")
+            User(email="admin@foodreview.com", full_name="Nguyễn Admin", role="admin", firebase_uid="g_admin_123", avatar_url="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"),
+            User(email="reviewer1@foodreview.com", full_name="Khoa Pug Review", role="reviewer", firebase_uid="g_rev_1", avatar_url="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150"),
+            User(email="reviewer2@foodreview.com", full_name="Ninh Titop", role="reviewer", firebase_uid="g_rev_2", avatar_url="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150"),
+            User(email="merchant1@foodreview.com", full_name="Chủ Quán Ba Đạt", role="merchant", firebase_uid="g_mer_1", avatar_url="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"),
+            User(email="merchant2@foodreview.com", full_name="Bà Sáu Bán Chè", role="merchant", firebase_uid="g_mer_2", avatar_url="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150")
         ]
         db.add_all(users)
         db.commit()
