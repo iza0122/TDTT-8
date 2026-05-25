@@ -8,8 +8,12 @@ from unittest.mock import patch, mock_open
 import sys
 if sys.platform.startswith("win"):
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    if getattr(sys.stdout, "encoding", "").lower() != "utf-8":
+        try:
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(current_dir)
