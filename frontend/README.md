@@ -90,6 +90,10 @@ frontend/
   ## Running the code
 
   Run `npm i` to install the dependencies.
+  
+npm install leaflet react-leaflet@4.2.1 --legacy-peer-deps\
+npm install --save-dev @types/leaflet --legacy-peer-deps\
+to tải map
 
   Run `npm run dev` to start the development server.
   

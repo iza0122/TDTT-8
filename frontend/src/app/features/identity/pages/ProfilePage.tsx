@@ -18,9 +18,11 @@ import {
   Favorite,
   GridOn,
   Share,
+  Logout,
 } from "@mui/icons-material";
 import { useState } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useNavigate } from "react-router";
 
 const mockUserPosts = [
   "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=400",
@@ -43,7 +45,13 @@ const mockSavedPosts = [
 
 export default function Profile() {
   const [currentTab, setCurrentTab] = useState(0);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/auth");
+  };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
@@ -53,12 +61,15 @@ export default function Profile() {
 
   const userName = user?.name || "User";
   const userInitial = userName.charAt(0).toUpperCase();
+  const userHandle = userName.toLowerCase().replace(/\s+/g, "");
+  const userContact = user?.email || user?.phone || "";
 
   return (
     <Box sx={{ maxWidth: 600, mx: "auto", pb: 2 }}>
       <Box sx={{ p: 3 }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
           <Avatar
+            src={user?.avatar || undefined}
             sx={{
               width: 80,
               height: 80,
@@ -69,17 +80,27 @@ export default function Profile() {
           >
             {userInitial}
           </Avatar>
-          <IconButton sx={{ alignSelf: "flex-start" }}>
-            <Settings />
-          </IconButton>
+          <Stack direction="row" spacing={0.5} sx={{ alignSelf: "flex-start" }}>
+            <IconButton>
+              <Settings />
+            </IconButton>
+            <IconButton onClick={handleLogout} sx={{ color: "#ff6b35" }}>
+              <Logout />
+            </IconButton>
+          </Stack>
         </Box>
 
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
           {userName}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          @{userName.toLowerCase().replace(" ", "")} • Foodie & Traveler
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          @{userHandle} • Foodie & Traveler
         </Typography>
+        {userContact && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {userContact}
+          </Typography>
+        )}
 
         <Typography variant="body2" sx={{ mb: 2 }}>
           🍜 Yêu ẩm thực Việt Nam
@@ -92,7 +113,7 @@ export default function Profile() {
         <Stack direction="row" spacing={3} sx={{ mb: 3 }}>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              124
+              0
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Bài viết
@@ -100,7 +121,7 @@ export default function Profile() {
           </Box>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              8.5K
+              0
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Người theo dõi
@@ -108,7 +129,7 @@ export default function Profile() {
           </Box>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              342
+              0
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Đang theo dõi

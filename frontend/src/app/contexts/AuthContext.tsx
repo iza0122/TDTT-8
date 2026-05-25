@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { removeAccessToken } from "../core/utils/tokens";
 
 interface User {
   id: string;
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem("foodspot_user");
+    removeAccessToken();
   };
 
   return (
