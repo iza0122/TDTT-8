@@ -1,12 +1,11 @@
 import { Outlet, useLocation, useNavigate } from "react-router";
-import { BottomNavigation, BottomNavigationAction, Box, AppBar, Toolbar, Typography, IconButton } from "@mui/material";
-import { Home, VideoLibrary, Map as MapIcon, Person, Logout } from "@mui/icons-material";
+import { BottomNavigation, BottomNavigationAction, Box, Typography } from "@mui/material";
+import { Home, VideoLibrary, Map as MapIcon, Person } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
 
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
 
   const getActiveTab = () => {
     if (location.pathname === "/") return 0;
@@ -30,25 +29,26 @@ export default function Layout() {
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", position: "relative" }}>
       
       {/* 1. LOGO LUÔN NẰM GÓC TRÁI TRÊN CÙNG (Dùng position: absolute) */}
-      <Box 
-        sx={{ 
-          position: "absolute", 
-          top: 16, 
-          left: 16, 
-          zIndex: 1000 // Đảm bảo luôn nằm trên các nội dung khác
+      <Box
+        sx={{
+          position: "absolute",
+          top: 16,
+          left: 16,
+          zIndex: 1000
         }}
       >
-        <Typography 
-          variant="h6" 
-          sx={{ 
-            fontWeight: 900, 
-            color: "#ff6b35", 
-            textShadow: "0 1px 2px rgba(0,0,0,0.3)" 
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 900,
+            color: "#ff6b35",
+            textShadow: "0 1px 2px rgba(0,0,0,0.3)"
           }}
         >
           FoodSpot
         </Typography>
       </Box>
+
 
       {/* 2. Phần nội dung (Outlet) */}
       <Box sx={{ flex: 1, overflow: "auto", bgcolor: "#f5f5f5" }}>
