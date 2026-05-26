@@ -159,6 +159,13 @@ class TestConfigSettings(unittest.TestCase):
             settings = Settings(FIREBASE_CREDENTIALS="")
             self.assertEqual(settings.FIREBASE_CREDENTIALS, cred_dict)
 
+    def test_database_url_fallback_disabled(self):
+        """Test DATABASE_URL ném lỗi khi ENABLE_DB_FALLBACK=False và không có DATABASE_URL"""
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError) as context:
+            Settings(DATABASE_URL="", ENABLE_DB_FALLBACK=False)
+        self.assertIn("cơ chế tự động fallback về SQLite đang tắt", str(context.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

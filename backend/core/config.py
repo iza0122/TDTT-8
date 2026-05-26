@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Food Review API"
     API_V1_STR: str = "/api"
     ENV: str = "development"
+    ENABLE_MOCK: bool = True
+    ENABLE_DB_FALLBACK: bool = True
+
     
     # CORS Origins
     CORS_ORIGINS: Union[List[str], str] = []
@@ -45,8 +48,15 @@ class Settings(BaseSettings):
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
-    def fallback_to_sqlite(cls, v: str) -> str:
+    def fallback_to_sqlite(cls, v: str, info: Any) -> str:
         if not v or not v.strip():
+            enable_fallback = info.data.get("ENABLE_DB_FALLBACK", True)
+            if isinstance(enable_fallback, str):
+                enable_fallback = enable_fallback.strip().lower() in ("true", "1", "yes", "on")
+            if not enable_fallback:
+                raise ValueError(
+                    "Không tìm thấy DATABASE_URL trong .env và cơ chế tự động fallback về SQLite đang tắt (ENABLE_DB_FALLBACK=False)."
+                )
             print("[DATABASE] Không tìm thấy DATABASE_URL trong .env! Tự động lùi về xài SQLite local.")
             return f"sqlite:///{str(CORE_DIR.parent / 'food_review.db')}"
         return v

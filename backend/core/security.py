@@ -39,6 +39,11 @@ def get_current_user(
     
     # Hỗ trợ Mock Token trong môi trường phát triển (Development)
     if token.startswith("mock_token_"):
+        if not settings.ENABLE_MOCK:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Chế độ Mock Token đang bị tắt. Vui lòng sử dụng Firebase ID Token chính thức."
+            )
         uid = token.replace("mock_token_", "")
         user = db.query(User).filter(User.firebase_uid == uid).first()
         if not user:

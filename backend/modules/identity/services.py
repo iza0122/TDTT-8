@@ -55,6 +55,11 @@ def register_user(db: Session, data: RegisterRequest) -> User:
         firebase_uid = user_record.uid
         print(f"[IDENTITY] Đăng ký thành công trên Firebase Auth. UID: {firebase_uid}")
     except Exception as e:
+        if not settings.ENABLE_MOCK:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Đăng ký tài khoản trên Firebase Auth thất bại và chế độ Mock đang tắt: {str(e)}"
+            )
         print(f"[IDENTITY] Cảnh báo: Không thể tạo tài khoản trên Firebase Auth ({str(e)}).")
         print("[IDENTITY] Tự động kích hoạt cơ chế Local Mock Fallback cho môi trường phát triển.")
         # Chế độ mock local: Sử dụng UUID giả dựa trên email
@@ -108,6 +113,12 @@ def login_user(db: Session, data: LoginRequest) -> dict:
     # 2. Kiểm tra cấu hình Firebase Web API Key
     api_key = settings.FIREBASE_WEB_API_KEY
     
+    if not api_key and not settings.ENABLE_MOCK:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cấu hình FIREBASE_WEB_API_KEY bị thiếu và chế độ Mock đang tắt. Không thể đăng nhập."
+        )
+        
     if api_key:
         # --- LUỒNG XÁC THỰC CHÍNH THỨC QUA FIREBASE ---
         url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={api_key}"
@@ -172,11 +183,21 @@ def login_user(db: Session, data: LoginRequest) -> dict:
                     detail=f"Xác thực qua Firebase thất bại: {error_msg or error_content}"
                 )
         except Exception as e:
+            if not settings.ENABLE_MOCK:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Kết nối tới Firebase REST API thất bại và chế độ Mock đang tắt: {str(e)}"
+                )
             print(f"[IDENTITY] Kết nối Firebase REST API thất bại ({str(e)}). Chuyển sang luồng Mock Fallback.")
             # Nếu kết nối internet lỗi, tự động lùi về Mock
             pass
 
     # --- LUỒNG MOCK FALLBACK (DEVELOPMENT) ---
+    if not settings.ENABLE_MOCK:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Đăng nhập qua Firebase thất bại và chế độ Mock đang tắt."
+        )
     print("[IDENTITY] Chạy chế độ Mock Login / Bỏ qua xác thực Firebase mật khẩu.")
     # Tìm kiếm user trong DB local
     db_user = db.query(User).filter(User.email == username).first()
