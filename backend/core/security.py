@@ -59,23 +59,42 @@ def get_current_user(
     # Tự động tạo mới tài khoản nếu chưa tồn tại
     if not user:
         email = decoded_token.get("email")
-        user = User(
-            firebase_uid=uid,
-            email=email,
-            full_name=decoded_token.get("name", email.split("@")[0] if email else "User"),
-            avatar_url=decoded_token.get("picture"),
-            role="reviewer"  # Vai trò mặc định cho tài khoản mới
-        )
-        try:
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-            print(f"[SECURITY] Đã tự động tạo tài khoản mới cho Firebase UID: {uid}")
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Lỗi khi đồng bộ tài khoản người dùng vào hệ thống: {str(e)}"
+        if email:
+            # Tìm kiếm theo email để liên kết tài khoản nếu có sẵn
+            user = db.query(User).filter(User.email == email).first()
+            
+        if user:
+            # Cập nhật firebase_uid mới cho tài khoản email sẵn có
+            user.firebase_uid = uid
+            try:
+                db.commit()
+                db.refresh(user)
+                print(f"[SECURITY] Đã cập nhật firebase_uid '{uid}' cho tài khoản email '{email}' sẵn có.")
+            except Exception as e:
+                db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Lỗi khi cập nhật thông tin tài khoản Firebase UID: {str(e)}"
+                )
+        else:
+            # Tạo mới hoàn toàn nếu cả UID và Email đều chưa tồn tại
+            user = User(
+                firebase_uid=uid,
+                email=email,
+                full_name=decoded_token.get("name", email.split("@")[0] if email else "User"),
+                avatar_url=decoded_token.get("picture"),
+                role="reviewer"  # Vai trò mặc định cho tài khoản mới
             )
+            try:
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+                print(f"[SECURITY] Đã tự động tạo tài khoản mới cho Firebase UID: {uid}")
+            except Exception as e:
+                db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Lỗi khi đồng bộ tài khoản người dùng vào hệ thống: {str(e)}"
+                )
             
     return user

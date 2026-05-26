@@ -135,17 +135,25 @@ def login_user(db: Session, data: LoginRequest) -> dict:
             # Tìm user tương ứng trong DB local
             db_user = db.query(User).filter(User.firebase_uid == local_id).first()
             if not db_user:
-                # Trường hợp hy hữu: có trên Firebase nhưng local chưa có -> tự động đồng bộ (auto-provision)
-                db_user = User(
-                    firebase_uid=local_id,
-                    email=username,
-                    full_name=res_json.get("displayName") or username.split("@")[0].capitalize(),
-                    role="reviewer"
-                )
-                db.add(db_user)
-                db.commit()
-                db.refresh(db_user)
-                print(f"[IDENTITY] Tự động đồng bộ tài khoản sau khi đăng nhập thành công. UID: {local_id}")
+                # Tìm kiếm theo email xem đã tồn tại chưa để liên kết tài khoản
+                db_user = db.query(User).filter(User.email == username).first()
+                if db_user:
+                    db_user.firebase_uid = local_id
+                    db.commit()
+                    db.refresh(db_user)
+                    print(f"[IDENTITY] Đã liên kết tài khoản email '{username}' sẵn có với firebase_uid '{local_id}'.")
+                else:
+                    # Trường hợp hy hữu: có trên Firebase nhưng local chưa có -> tự động đồng bộ (auto-provision)
+                    db_user = User(
+                        firebase_uid=local_id,
+                        email=username,
+                        full_name=res_json.get("displayName") or username.split("@")[0].capitalize(),
+                        role="reviewer"
+                    )
+                    db.add(db_user)
+                    db.commit()
+                    db.refresh(db_user)
+                    print(f"[IDENTITY] Tự động đồng bộ tài khoản sau khi đăng nhập thành công. UID: {local_id}")
             
             return {
                 "access_token": id_token,
