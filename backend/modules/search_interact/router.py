@@ -6,7 +6,7 @@ from backend.core.security import get_current_user
 from backend.core.all_models import User
 from backend.modules.search_interact import schemas, services
 
-router = APIRouter(tags=["Search & Interactions"])
+router = APIRouter(tags=["Search & Interaction"])
 
 @router.post(
     "/videos/{video_id}/like",
