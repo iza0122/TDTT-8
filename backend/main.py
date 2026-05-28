@@ -1,13 +1,25 @@
 import os
 import sys
 
-# Thêm thư mục cha vào sys.path để hỗ trợ chạy từ cả thư mục backend và thư mục gốc của dự án
+# Thêm thư mục hiện tại vào sys.path và giả lập package 'backend' khi chạy trên Vercel
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
 if current_dir not in sys.path:
     sys.path.append(current_dir)
+
+# Hỗ trợ chạy từ cả thư mục backend và thư mục gốc của dự án
+parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
+
+# Nếu chạy trên Vercel với Root Directory là 'backend', thư mục 'backend' cha không tồn tại.
+# Ta giả lập module 'backend' trỏ thẳng vào thư mục hiện tại để các import 'from backend.xxx' hoạt động bình thường.
+try:
+    import backend
+except ModuleNotFoundError:
+    import types
+    backend_mock = types.ModuleType('backend')
+    backend_mock.__path__ = [current_dir]
+    sys.modules['backend'] = backend_mock
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
