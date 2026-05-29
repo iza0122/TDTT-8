@@ -346,6 +346,42 @@ export default function ReelsPage() {
     );
   };
 
+  if (reels.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+        {/* Decorative background gradients */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5 pointer-events-none" />
+
+        <div className="relative z-10 max-w-sm space-y-6 animate-in fade-in zoom-in-95 duration-300">
+          <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto text-primary shadow-lg border border-primary/20 animate-bounce">
+            <Camera className="w-10 h-10" />
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
+              Chưa có Reels nào
+            </h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Cộng đồng chưa có video review ẩm thực ngắn nào được đăng tải. Hãy là người đầu tiên chia sẻ món ngon của bạn!
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 pt-4 justify-center">
+            <Button className="h-12 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 shadow-md">
+              <Camera className="w-4 h-4 mr-2" />
+              Tải lên Video đầu tiên
+            </Button>
+            <Link href="/" className="w-full">
+              <Button variant="outline" className="w-full h-12 rounded-xl text-sm font-bold border-border bg-card">
+                Quay lại Trang chủ
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-background dark:bg-black overflow-hidden flex w-full">
       {/* Main Reels Panel (Left) */}

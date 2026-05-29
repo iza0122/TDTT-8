@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Mail, ChefHat, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Mail, ChefHat, ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useForgotPasswordForm } from "@/hooks/use-forgot-password-form";
+import { cn } from "@/lib/utils";
 
 export default function ForgotPasswordPage() {
-  const { email, setEmail, isLoading, isSubmitted, handleSubmit } = useForgotPasswordForm();
+  const { email, setEmail, isLoading, isSubmitted, error, emailError, handleSubmit } = useForgotPasswordForm();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -64,6 +66,16 @@ export default function ForgotPasswordPage() {
                 </p>
               </div>
 
+              {error && (
+                <Alert variant="destructive" className="mb-6 border-destructive/30 bg-destructive/5 text-destructive rounded-xl animate-in fade-in-50 slide-in-from-top-2 duration-200">
+                  <AlertCircle className="w-5 h-5 text-destructive" />
+                  <AlertTitle className="font-bold">Gửi yêu cầu thất bại</AlertTitle>
+                  <AlertDescription className="text-sm">
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -73,13 +85,21 @@ export default function ForgotPasswordPage() {
                       id="email"
                       type="email"
                       placeholder="your@email.com"
-                      className="pl-10 h-12 rounded-xl"
+                      className={cn(
+                        "pl-10 h-12 rounded-xl transition-all duration-200",
+                        emailError && "border-destructive focus-visible:ring-destructive bg-destructive/5 text-destructive"
+                      )}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       disabled={isLoading}
                     />
                   </div>
+                  {emailError && (
+                    <p className="text-xs text-destructive mt-1 font-medium animate-in fade-in duration-200">
+                      {emailError}
+                    </p>
+                  )}
                 </div>
 
                 <Button
@@ -105,3 +125,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, User, ChefHat, Check } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, ChefHat, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useRegisterForm } from "@/hooks/use-register-form";
+import { cn } from "@/lib/utils";
 
 export default function RegisterPage() {
   const {
@@ -18,6 +20,8 @@ export default function RegisterPage() {
     setShowConfirmPassword,
     isLoading,
     passwordRequirements,
+    error,
+    fieldErrors,
     handleSubmit,
     handleGoogleLogin,
   } = useRegisterForm();
@@ -50,6 +54,24 @@ export default function RegisterPage() {
             </p>
           </div>
 
+          {error && (
+            <Alert variant="destructive" className="mb-5 border-destructive/30 bg-destructive/5 text-destructive rounded-xl animate-in fade-in-50 slide-in-from-top-2 duration-200">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              <AlertTitle className="font-bold">Đăng ký thất bại</AlertTitle>
+              <AlertDescription className="text-sm">
+                {error}
+                {error.includes("Tài khoản đã tồn tại") && (
+                  <span className="block mt-1">
+                    Bạn đã có tài khoản?{" "}
+                    <Link href="/login" className="underline font-semibold hover:text-destructive/80 transition-colors">
+                      Đăng nhập ngay tại đây.
+                    </Link>
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Họ và tên</Label>
@@ -59,7 +81,10 @@ export default function RegisterPage() {
                   id="name"
                   type="text"
                   placeholder="Nguyễn Văn A"
-                  className="pl-10 h-12 rounded-xl"
+                  className={cn(
+                    "pl-10 h-12 rounded-xl transition-all duration-200",
+                    fieldErrors.name && "border-destructive focus-visible:ring-destructive bg-destructive/5 text-destructive"
+                  )}
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
@@ -67,6 +92,11 @@ export default function RegisterPage() {
                   required
                 />
               </div>
+              {fieldErrors.name && (
+                <p className="text-xs text-destructive mt-1 font-medium animate-in fade-in duration-200">
+                  {fieldErrors.name}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -77,7 +107,10 @@ export default function RegisterPage() {
                   id="email"
                   type="email"
                   placeholder="your@email.com"
-                  className="pl-10 h-12 rounded-xl"
+                  className={cn(
+                    "pl-10 h-12 rounded-xl transition-all duration-200",
+                    fieldErrors.email && "border-destructive focus-visible:ring-destructive bg-destructive/5 text-destructive"
+                  )}
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
@@ -85,6 +118,11 @@ export default function RegisterPage() {
                   required
                 />
               </div>
+              {fieldErrors.email && (
+                <p className="text-xs text-destructive mt-1 font-medium animate-in fade-in duration-200">
+                  {fieldErrors.email}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -95,7 +133,10 @@ export default function RegisterPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Tạo mật khẩu"
-                  className="pl-10 pr-10 h-12 rounded-xl"
+                  className={cn(
+                    "pl-10 pr-10 h-12 rounded-xl transition-all duration-200",
+                    fieldErrors.password && "border-destructive focus-visible:ring-destructive bg-destructive/5 text-destructive"
+                  )}
                   value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
@@ -114,6 +155,11 @@ export default function RegisterPage() {
                   )}
                 </button>
               </div>
+              {fieldErrors.password && (
+                <p className="text-xs text-destructive mt-1 font-medium animate-in fade-in duration-200">
+                  {fieldErrors.password}
+                </p>
+              )}
               {/* Password requirements */}
               {formData.password && (
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -142,7 +188,10 @@ export default function RegisterPage() {
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Nhập lại mật khẩu"
-                  className="pl-10 pr-10 h-12 rounded-xl"
+                  className={cn(
+                    "pl-10 pr-10 h-12 rounded-xl transition-all duration-200",
+                    fieldErrors.confirmPassword && "border-destructive focus-visible:ring-destructive bg-destructive/5 text-destructive"
+                  )}
                   value={formData.confirmPassword}
                   onChange={(e) =>
                     setFormData({ ...formData, confirmPassword: e.target.value })
@@ -161,8 +210,10 @@ export default function RegisterPage() {
                   )}
                 </button>
               </div>
-              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                <p className="text-xs text-destructive mt-1">Mật khẩu không khớp</p>
+              {fieldErrors.confirmPassword && (
+                <p className="text-xs text-destructive mt-1 font-medium animate-in fade-in duration-200">
+                  {fieldErrors.confirmPassword}
+                </p>
               )}
             </div>
 
@@ -190,7 +241,7 @@ export default function RegisterPage() {
             <Button
               type="submit"
               className="w-full h-12 rounded-xl text-base font-semibold mt-2"
-              disabled={isLoading || !formData.agreeTerms}
+              disabled={isLoading}
             >
               {isLoading ? "Đang tạo tài khoản..." : "Đăng ký"}
             </Button>
@@ -249,3 +300,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+

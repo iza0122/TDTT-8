@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { Settings, Grid3X3, Bookmark, Heart, MapPin, Home, Share2, LogOut, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { userProfile } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -75,11 +74,11 @@ export default function ProfilePage() {
   const displayAvatar = user?.avatar_url || profileStats?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
   const displayBio = profileStats?.bio || "Đam mê ẩm thực & Chia sẻ quán ngon";
 
-  const postsCount = profileStats?.posts_count ?? userProfile.posts;
-  const followersCount = profileStats?.followers_count ?? userProfile.followers;
-  const followingCount = profileStats?.following_count ?? userProfile.following;
-  const savedCount = profileStats?.saved_count ?? userProfile.saved;
-  const likesCount = profileStats?.likes_received_count ?? (followersCount * 10);
+  const postsCount = profileStats?.posts_count ?? 0;
+  const followersCount = profileStats?.followers_count ?? 0;
+  const followingCount = profileStats?.following_count ?? 0;
+  const savedCount = profileStats?.saved_count ?? 0;
+  const likesCount = profileStats?.likes_received_count ?? 0;
 
   return (
     <div className="min-h-screen bg-background pb-8">
@@ -150,7 +149,7 @@ export default function ProfilePage() {
               <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
                 <MapPin className="w-5 h-5 text-primary" />
               </div>
-              <p className="font-bold">{userProfile.reviews.length}</p>
+              <p className="font-bold">{postsCount}</p>
               <p className="text-xs text-muted-foreground">Địa điểm</p>
             </div>
             <div className="bg-secondary/50 rounded-xl p-3 text-center">
@@ -214,14 +213,14 @@ export default function ProfilePage() {
 
         {/* Premium Grid with Spacing & Rounded corners */}
         <div className="grid grid-cols-3 gap-3 px-4 py-4">
-          {userProfile.reviews.map((review, index) => (
+          {profileStats?.videos?.map((video: any, index: number) => (
             <button
-              key={review.id}
+              key={video.id}
               className="relative aspect-square group rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 hover:scale-[1.02]"
             >
               <Image
-                src={review.image}
-                alt={review.restaurant}
+                src={video.thumbnail_url || "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=400&h=300&fit=crop"}
+                alt={video.title}
                 fill
                 className="object-cover"
                 sizes="(max-width: 512px) 33vw, 170px"
@@ -232,21 +231,18 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-4 text-card">
                   <div className="flex items-center gap-1">
                     <Heart className="w-5 h-5 fill-card" />
-                    <span className="font-semibold">{Math.floor(Math.random() * 500) + 100}</span>
+                    <span className="font-semibold">{video.likes_count}</span>
                   </div>
                 </div>
               </div>
             </button>
           ))}
-          {/* Additional placeholder items for better grid */}
-          {[...Array(6 - userProfile.reviews.length % 3)].map((_, i) => (
-            userProfile.reviews.length % 3 !== 0 && (
-              <div
-                key={`placeholder-${i}`}
-                className="aspect-square bg-secondary/30 rounded-2xl"
-              />
-            )
-          ))}
+          {(!profileStats?.videos || profileStats.videos.length === 0) && (
+            <div className="col-span-3 text-center py-16 px-4 bg-secondary/20 rounded-3xl border border-dashed border-border/80 my-4 space-y-2">
+              <p className="font-bold text-sm text-foreground">Không có bài viết nào</p>
+              <p className="text-xs text-muted-foreground">Bạn chưa đăng video review nào cả. Hãy chia sẻ món ngon đầu tiên nhé!</p>
+            </div>
+          )}
         </div>
       </main>
     </div>

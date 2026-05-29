@@ -13,13 +13,40 @@ export function useRegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
+  
+  const [formData, setFormDataRaw] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
     agreeTerms: false,
   });
+
+  const setFormData = (value: any) => {
+    setError(null);
+    if (typeof value === "function") {
+      setFormDataRaw((prev) => {
+        const next = value(prev);
+        const updatedErrors = { ...fieldErrors };
+        if (next.name !== prev.name) delete updatedErrors.name;
+        if (next.email !== prev.email) delete updatedErrors.email;
+        if (next.password !== prev.password) delete updatedErrors.password;
+        if (next.confirmPassword !== prev.confirmPassword) delete updatedErrors.confirmPassword;
+        setFieldErrors(updatedErrors);
+        return next;
+      });
+    } else {
+      setFormDataRaw(value);
+      setFieldErrors({});
+    }
+  };
 
   const passwordRequirements = [
     { label: "Ít nhất 8 ký tự", met: formData.password.length >= 8 },
@@ -29,34 +56,90 @@ export function useRegisterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setFieldErrors({});
+
+    let hasError = false;
+    const errors: typeof fieldErrors = {};
+
+    const cleanName = formData.name.trim();
+    const cleanEmail = formData.email.trim();
+
+    if (!cleanName) {
+      errors.name = "Họ và tên không được để trống.";
+      hasError = true;
+    }
+
+    if (!cleanEmail) {
+      errors.email = "Vui lòng nhập địa chỉ email.";
+      hasError = true;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      errors.email = "Địa chỉ email không đúng định dạng (ví dụ: ten@example.com).";
+      hasError = true;
+    }
+
+    // Password validation
+    if (!formData.password) {
+      errors.password = "Vui lòng tạo mật khẩu.";
+      hasError = true;
+    } else {
+      const isLengthMet = formData.password.length >= 8;
+      const isUpperMet = /[A-Z]/.test(formData.password);
+      const isNumberMet = /[0-9]/.test(formData.password);
+      
+      if (!isLengthMet || !isUpperMet || !isNumberMet) {
+        errors.password = "Mật khẩu chưa đáp ứng đầy đủ yêu cầu bảo mật.";
+        hasError = true;
+      }
+    }
+
     if (formData.password !== formData.confirmPassword) {
-      toast({
-        variant: "destructive",
-        title: "Mật khẩu không khớp! ❌",
-        description: "Vui lòng kiểm tra lại mật khẩu xác nhận.",
-      });
+      errors.confirmPassword = "Mật khẩu xác nhận không khớp.";
+      hasError = true;
+    }
+
+    if (!formData.agreeTerms) {
+      setError("Bạn cần đồng ý với Điều khoản dịch vụ và Chính sách bảo mật để tiếp tục.");
       return;
     }
+
+    if (hasError) {
+      setFieldErrors(errors);
+      setError("Vui lòng hoàn thiện chính xác các thông tin đăng ký.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: formData.email,
+          email: cleanEmail,
           password: formData.password,
-          full_name: formData.name
+          full_name: cleanName
         })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error("Không nhận được phản hồi đăng ký hợp lệ từ máy chủ.");
+      }
+
       if (!response.ok) {
-        throw new Error(data.detail || "Đăng ký tài khoản thất bại");
+        if (response.status === 400 && (data.detail?.includes("đã được đăng ký") || data.detail?.includes("exists"))) {
+          setFieldErrors({ email: "Email này đã được sử dụng." });
+          throw new Error("Tài khoản đã tồn tại.");
+        } else {
+          throw new Error(data.detail || "Đăng ký tài khoản thất bại.");
+        }
       }
 
       toast({
         title: "Đăng ký thành công! 🎉",
-        description: "Tài khoản của bạn đã được khởi tạo. Đang tự động đăng nhập...",
+        description: "Tài khoản đã được khởi tạo. Đang tự động đăng nhập...",
       });
 
       // Tự động đăng nhập sau khi đăng ký thành công
@@ -64,12 +147,19 @@ export function useRegisterForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: formData.email,
+          email: cleanEmail,
           password: formData.password
         })
       });
 
-      const loginData = await loginResponse.json();
+      let loginData;
+      try {
+        loginData = await loginResponse.json();
+      } catch (e) {
+        router.push("/login");
+        return;
+      }
+
       if (loginResponse.ok) {
         login(loginData.access_token, loginData.user);
         router.push("/");
@@ -77,11 +167,8 @@ export function useRegisterForm() {
         router.push("/login");
       }
     } catch (err: any) {
-      toast({
-        variant: "destructive",
-        title: "Đăng ký thất bại ❌",
-        description: err.message || "Email này đã được sử dụng hoặc thông tin không hợp lệ.",
-      });
+      console.error(err);
+      setError(err.message || "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
     } finally {
       setIsLoading(false);
     }
@@ -89,6 +176,8 @@ export function useRegisterForm() {
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
+    setError(null);
+    setFieldErrors({});
     try {
       const { auth: clientAuth, googleProvider, signInWithPopup } = await import("@/lib/firebase");
       const result = await signInWithPopup(clientAuth, googleProvider);
@@ -100,9 +189,15 @@ export function useRegisterForm() {
         body: JSON.stringify({ id_token: idToken })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error("Đồng bộ tài khoản với backend thất bại.");
+      }
+
       if (!response.ok) {
-        throw new Error(data.detail || "Đồng bộ tài khoản với backend thất bại");
+        throw new Error(data.detail || "Đồng bộ tài khoản Google thất bại.");
       }
 
       login(data.access_token, data.user);
@@ -115,11 +210,12 @@ export function useRegisterForm() {
       router.push("/");
     } catch (err: any) {
       console.error(err);
-      toast({
-        variant: "destructive",
-        title: "Đăng nhập Google thất bại ❌",
-        description: err.message || "Đã xảy ra lỗi trong quá trình xác thực tài khoản Google.",
-      });
+      const isPopupClosed = err.code === "auth/popup-closed-by-user" || err.message?.includes("closed");
+      const errorMsg = isPopupClosed
+        ? "Đăng ký bằng Google đã bị hủy."
+        : (err.message || "Đã xảy ra lỗi trong quá trình xác thực tài khoản Google.");
+        
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -134,6 +230,8 @@ export function useRegisterForm() {
     setShowConfirmPassword,
     isLoading,
     passwordRequirements,
+    error,
+    fieldErrors,
     handleSubmit,
     handleGoogleLogin,
   };

@@ -12,28 +12,92 @@ export function useLoginForm() {
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  
+  const [formData, setFormDataRaw] = useState({
     email: "",
     password: "",
     remember: false,
   });
 
+  const setFormData = (value: any) => {
+    setError(null);
+    if (typeof value === "function") {
+      setFormDataRaw((prev) => {
+        const next = value(prev);
+        const updatedErrors = { ...fieldErrors };
+        if (next.email !== prev.email) delete updatedErrors.email;
+        if (next.password !== prev.password) delete updatedErrors.password;
+        setFieldErrors(updatedErrors);
+        return next;
+      });
+    } else {
+      setFormDataRaw(value);
+      setFieldErrors({});
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setFieldErrors({});
+
+    // Client-side validation
+    let hasError = false;
+    const errors: { email?: string; password?: string } = {};
+
+    const cleanEmail = formData.email.trim();
+
+    if (!cleanEmail) {
+      errors.email = "Vui lòng nhập địa chỉ email.";
+      hasError = true;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      errors.email = "Địa chỉ email không đúng định dạng (ví dụ: ten@example.com).";
+      hasError = true;
+    }
+
+    if (!formData.password) {
+      errors.password = "Vui lòng nhập mật khẩu.";
+      hasError = true;
+    }
+
+    if (hasError) {
+      setFieldErrors(errors);
+      setError("Vui lòng sửa các thông tin chưa hợp lệ.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: formData.email,
+          email: cleanEmail,
           password: formData.password
         })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error("Không nhận được phản hồi hợp lệ từ máy chủ.");
+      }
+
       if (!response.ok) {
-        throw new Error(data.detail || "Đăng nhập thất bại");
+        if (response.status === 404) {
+          setFieldErrors({ email: "Email này chưa được đăng ký trong hệ thống." });
+          throw new Error("Tài khoản không tồn tại.");
+        } else if (response.status === 401) {
+          setFieldErrors({ password: "Mật khẩu không chính xác." });
+          throw new Error("Mật khẩu không chính xác.");
+        } else if (response.status === 403) {
+          throw new Error("Tài khoản của bạn hiện đang bị khóa.");
+        } else {
+          throw new Error(data.detail || "Đăng nhập thất bại. Vui lòng kiểm tra lại.");
+        }
       }
 
       login(data.access_token, data.user);
@@ -45,11 +109,8 @@ export function useLoginForm() {
 
       router.push("/");
     } catch (err: any) {
-      toast({
-        variant: "destructive",
-        title: "Đăng nhập thất bại ❌",
-        description: err.message || "Vui lòng kiểm tra lại thông tin đăng nhập.",
-      });
+      console.error(err);
+      setError(err.message || "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
     } finally {
       setIsLoading(false);
     }
@@ -57,6 +118,8 @@ export function useLoginForm() {
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
+    setError(null);
+    setFieldErrors({});
     try {
       const { auth: clientAuth, googleProvider, signInWithPopup } = await import("@/lib/firebase");
       const result = await signInWithPopup(clientAuth, googleProvider);
@@ -68,9 +131,15 @@ export function useLoginForm() {
         body: JSON.stringify({ id_token: idToken })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error("Đồng bộ tài khoản với backend thất bại.");
+      }
+
       if (!response.ok) {
-        throw new Error(data.detail || "Đồng bộ tài khoản với backend thất bại");
+        throw new Error(data.detail || "Đồng bộ tài khoản Google thất bại.");
       }
 
       login(data.access_token, data.user);
@@ -83,11 +152,13 @@ export function useLoginForm() {
       router.push("/");
     } catch (err: any) {
       console.error(err);
-      toast({
-        variant: "destructive",
-        title: "Đăng nhập Google thất bại ❌",
-        description: err.message || "Đã xảy ra lỗi trong quá trình xác thực tài khoản Google.",
-      });
+      // Hủy bỏ popup Google hoặc đóng popup không được xem là lỗi nghiêm trọng cần cảnh báo to
+      const isPopupClosed = err.code === "auth/popup-closed-by-user" || err.message?.includes("closed");
+      const errorMsg = isPopupClosed
+        ? "Đăng nhập Google đã bị hủy."
+        : (err.message || "Đã xảy ra lỗi trong quá trình xác thực tài khoản Google.");
+      
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -99,7 +170,10 @@ export function useLoginForm() {
     showPassword,
     setShowPassword,
     isLoading,
+    error,
+    fieldErrors,
     handleSubmit,
     handleGoogleLogin,
   };
 }
+

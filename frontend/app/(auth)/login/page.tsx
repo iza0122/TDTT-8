@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock, ChefHat } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ChefHat, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useLoginForm } from "@/hooks/use-login-form";
+import { cn } from "@/lib/utils";
 
 export default function LoginPage() {
   const {
@@ -15,6 +17,8 @@ export default function LoginPage() {
     showPassword,
     setShowPassword,
     isLoading,
+    error,
+    fieldErrors,
     handleSubmit,
     handleGoogleLogin,
   } = useLoginForm();
@@ -47,6 +51,24 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {error && (
+            <Alert variant="destructive" className="mb-6 border-destructive/30 bg-destructive/5 text-destructive rounded-xl animate-in fade-in-50 slide-in-from-top-2 duration-200">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              <AlertTitle className="font-bold">Đăng nhập thất bại</AlertTitle>
+              <AlertDescription className="text-sm">
+                {error}
+                {error.includes("Mật khẩu không chính xác") && (
+                  <span className="block mt-1">
+                    Bạn quên mật khẩu?{" "}
+                    <Link href="/forgot-password" className="underline font-semibold hover:text-destructive/80 transition-colors">
+                      Nhấp vào đây để lấy lại.
+                    </Link>
+                  </span>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -56,7 +78,10 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   placeholder="your@email.com"
-                  className="pl-10 h-12 rounded-xl"
+                  className={cn(
+                    "pl-10 h-12 rounded-xl transition-all duration-200",
+                    fieldErrors.email && "border-destructive focus-visible:ring-destructive bg-destructive/5 text-destructive"
+                  )}
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
@@ -64,6 +89,11 @@ export default function LoginPage() {
                   required
                 />
               </div>
+              {fieldErrors.email && (
+                <p className="text-xs text-destructive mt-1 font-medium animate-in fade-in duration-200">
+                  {fieldErrors.email}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -74,7 +104,10 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Nhập mật khẩu"
-                  className="pl-10 pr-10 h-12 rounded-xl"
+                  className={cn(
+                    "pl-10 pr-10 h-12 rounded-xl transition-all duration-200",
+                    fieldErrors.password && "border-destructive focus-visible:ring-destructive bg-destructive/5 text-destructive"
+                  )}
                   value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
@@ -93,6 +126,11 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
+              {fieldErrors.password && (
+                <p className="text-xs text-destructive mt-1 font-medium animate-in fade-in duration-200">
+                  {fieldErrors.password}
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between">
@@ -178,3 +216,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

@@ -27,16 +27,15 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { userProfile } from "@/lib/data";
 import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
 
 export function Header() {
   const { user, logout } = useAuth();
 
-  const displayName = user?.full_name || userProfile.name;
-  const displayUsername = user?.email ? user.email.split('@')[0] : userProfile.username;
-  const displayAvatar = user?.avatar_url || userProfile.avatar;
+  const displayName = user?.full_name || "Khách";
+  const displayUsername = user?.email ? user.email.split('@')[0] : "guest";
+  const displayAvatar = user?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
 
   return (
     <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-sm border-b border-border">
@@ -78,10 +77,10 @@ export function Header() {
                 </Link>
                 <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
                   <div>
-                    <span className="font-bold text-foreground">{user ? "12" : userProfile.posts}</span> bài viết
+                    <span className="font-bold text-foreground">0</span> bài viết
                   </div>
                   <div>
-                    <span className="font-bold text-foreground">{user ? "250" : "12.5K"}</span> người theo dõi
+                    <span className="font-bold text-foreground">0</span> người theo dõi
                   </div>
                 </div>
               </div>
