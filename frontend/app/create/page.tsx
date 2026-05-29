@@ -192,7 +192,7 @@ export default function CreatePostPage() {
                     <img
                       src={filePreviewUrl}
                       alt="Xem trước bài đăng"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   )}
 

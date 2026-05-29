@@ -85,28 +85,51 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
       <div className="relative flex items-end md:items-center justify-center h-full w-full max-w-[100vw] md:max-w-none md:w-auto md:gap-6">
         
         {/* Video/Image Container - Portrait 9:16 inside a phone mockup container on desktop */}
-        <div className="relative w-full h-full max-w-[100vw] md:max-w-[calc((100vh-48px)*9/16)] md:h-[calc(100vh-48px)] aspect-[9/16] md:aspect-auto md:rounded-[36px] md:border-[10px] md:border-muted-foreground/35 md:shadow-2xl md:overflow-hidden md:bg-card">
+        <div className="relative w-full h-full max-w-[100vw] md:max-w-[calc((100vh-48px)*9/16)] md:h-[calc(100vh-48px)] aspect-[9/16] md:aspect-auto md:rounded-[36px] md:border-[10px] md:border-muted-foreground/35 md:shadow-2xl md:overflow-hidden bg-black flex items-center justify-center">
+          {/* Blurred ambient backdrop */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 select-none">
+            {isVideoFile ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={reel.thumbnail || reel.video}
+                alt=""
+                className="w-full h-full object-cover blur-2xl scale-110"
+              />
+            ) : (
+              <Image
+                src={reel.video}
+                alt=""
+                fill
+                className="object-cover blur-2xl scale-110"
+                sizes="50vw"
+              />
+            )}
+          </div>
+
+          {/* Foreground uncropped media */}
           {isVideoFile ? (
             <video
               ref={videoRef}
               src={reel.video}
               poster={reel.thumbnail}
-              className="w-full h-full object-cover"
+              className="relative z-10 w-full h-full object-contain"
               loop
               muted={isMuted}
               playsInline
               autoPlay={isActive}
             />
           ) : (
-            <Image
-              src={reel.video}
-              alt={reel.caption}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 56.25vh"
-              priority
-              loading="eager"
-            />
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <Image
+                src={reel.video}
+                alt={reel.caption}
+                fill
+                className="object-contain"
+                sizes="(max-width: 768px) 100vw, 56.25vh"
+                priority
+                loading="eager"
+              />
+            </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 dark:from-black/20 via-transparent to-foreground/40 dark:to-black/60" />
 
@@ -123,7 +146,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
           </button>
 
           {/* Bottom Info */}
-          <div className="absolute bottom-6 left-0 right-14 p-4 z-20">
+          <div className="absolute bottom-2 left-0 right-14 p-4 z-20">
             {/* User Info */}
             <div className="flex items-center gap-2 mb-2">
               <span className="text-white font-semibold text-sm">@{reel.user.username}</span>
@@ -133,18 +156,10 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
             <p className="text-white text-sm mb-2 line-clamp-2">{reel.caption}</p>
 
             {/* Restaurant */}
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 bg-white/15 backdrop-blur-sm px-2 py-1 rounded-full">
                 <MapPin className="w-3 h-3 text-white" />
                 <span className="text-white text-xs font-medium">{reel.restaurant.name}</span>
-              </div>
-            </div>
-
-            {/* Music */}
-            <div className="flex items-center gap-2">
-              <Music2 className="w-3 h-3 text-white/80" />
-              <div className="overflow-hidden flex-1">
-                <p className="text-white/80 text-xs truncate">{reel.music}</p>
               </div>
             </div>
           </div>
@@ -154,7 +169,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
         <div className="absolute right-3 bottom-8 md:static flex flex-col items-center gap-5 z-20">
           {/* User Avatar */}
           <div className="relative">
-            <Avatar className="w-11 h-11 ring-2 ring-white/30">
+            <Avatar className="w-11 h-11 ring-2 ring-white/30 md:ring-muted/50 dark:md:ring-white/30">
               <AvatarImage src={reel.user.avatar} alt={reel.user.name} />
               <AvatarFallback>{reel.user.name[0]}</AvatarFallback>
             </Avatar>
@@ -165,52 +180,52 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
 
           {/* Like */}
           <button onClick={handleLike} className="flex flex-col items-center gap-1">
-            <div className="w-10 h-10 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors">
+            <div className="w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-colors">
               <Heart
                 className={cn(
                   "w-5 h-5 transition-all",
-                  isLiked ? "text-red-500 fill-red-500" : "text-white"
+                  isLiked ? "text-red-500 fill-red-500" : "text-white md:text-foreground dark:md:text-white"
                 )}
               />
             </div>
-            <span className="text-white text-xs font-bold tracking-wide">{formatNumber(likes)}</span>
+            <span className="text-white md:text-foreground dark:md:text-white text-xs font-bold tracking-wide">{formatNumber(likes)}</span>
           </button>
 
           {/* Comment */}
           <button onClick={onCommentClick} className="flex flex-col items-center gap-1">
             <div className={cn(
-              "w-10 h-10 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center transition-all duration-300",
+              "w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-all duration-300",
               isCommentsOpen && "ring-2 ring-orange-500/60 shadow-lg"
             )}>
-              <MessageCircle className="w-5 h-5 text-white" />
+              <MessageCircle className="w-5 h-5 text-white md:text-foreground dark:md:text-white" />
             </div>
-            <span className="text-white text-xs font-bold tracking-wide">{formatNumber(reel.comments)}</span>
+            <span className="text-white md:text-foreground dark:md:text-white text-xs font-bold tracking-wide">{formatNumber(reel.comments)}</span>
           </button>
 
           {/* Share */}
           <button className="flex flex-col items-center gap-1">
-            <div className="w-10 h-10 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors">
-              <Share2 className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-colors">
+              <Share2 className="w-5 h-5 text-white md:text-foreground dark:md:text-white" />
             </div>
-            <span className="text-white text-xs font-bold tracking-wide">{formatNumber(reel.shares)}</span>
+            <span className="text-white md:text-foreground dark:md:text-white text-xs font-bold tracking-wide">{formatNumber(reel.shares)}</span>
           </button>
 
           {/* Mute/Unmute sound option (Clean textless design) */}
           {isVideoFile && (
             <button onClick={toggleMute} className="flex flex-col items-center">
-              <div className="w-10 h-10 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors">
+              <div className="w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-colors">
                 {isMuted ? (
-                  <VolumeX className="w-5 h-5 text-white" />
+                  <VolumeX className="w-5 h-5 text-white md:text-foreground dark:md:text-white" />
                 ) : (
-                  <Volume2 className="w-5 h-5 text-white animate-pulse" />
+                  <Volume2 className="w-5 h-5 text-white md:text-foreground dark:md:text-white animate-pulse" />
                 )}
               </div>
             </button>
           )}
 
           {/* More */}
-          <button className="w-10 h-10 bg-white/15 hover:bg-white/25 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors">
-            <MoreVertical className="w-5 h-5 text-white" />
+          <button className="w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-colors">
+            <MoreVertical className="w-5 h-5 text-white md:text-foreground dark:md:text-white" />
           </button>
         </div>
 

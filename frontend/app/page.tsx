@@ -126,6 +126,7 @@ export default function HomePage() {
   const [isFetchingComments, setIsFetchingComments] = useState(false);
   const [newCommentText, setNewCommentText] = useState("");
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
+  const [modalImageAspect, setModalImageAspect] = useState<number | null>(null);
 
   useEffect(() => {
     if (!selectedPostId) {
@@ -466,6 +467,7 @@ export default function HomePage() {
             setSelectedPostId(null);
             setReplyingTo(null);
             setNewCommentText("");
+            setModalImageAspect(null);
           }} />
 
           {/* Modal Container */}
@@ -476,6 +478,7 @@ export default function HomePage() {
                 setSelectedPostId(null);
                 setReplyingTo(null);
                 setNewCommentText("");
+                setModalImageAspect(null);
               }}
               className="absolute top-4 right-4 z-35 p-2 rounded-full bg-black/50 text-white hover:bg-black/75 transition-all active:scale-95 cursor-pointer shadow-xs border border-border/10"
               title="Đóng"
@@ -672,29 +675,40 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* Proportional aspect-square photo matching Feed card */}
-                    <div className="relative w-full aspect-square rounded-2xl overflow-hidden shadow-xs border border-border/30">
+                    {/* Proportional dynamic aspect ratio photo matching original image */}
+                    <div 
+                      className="relative w-full rounded-2xl overflow-hidden shadow-xs border border-border/30 bg-black flex items-center justify-center transition-all duration-300"
+                      style={{ 
+                        aspectRatio: modalImageAspect ? `${modalImageAspect}` : '1 / 1',
+                        maxHeight: '55vh'
+                      }}
+                    >
+                      {/* Blurred ambient backdrop */}
+                      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-45 select-none">
+                        <Image
+                          src={activePost.image}
+                          alt=""
+                          fill
+                          className="object-cover blur-2xl scale-110"
+                          sizes="100px"
+                        />
+                      </div>
+
+                      {/* Foreground uncropped image */}
                       <Image
                         src={activePost.image}
                         alt={activePost.caption}
                         fill
-                        className="object-cover"
+                        className="object-contain animate-fade-in duration-300"
                         sizes="(max-width: 576px) 100vw, 576px"
                         priority
+                        onLoad={(e) => {
+                          const img = e.target as HTMLImageElement;
+                          if (img.naturalWidth && img.naturalHeight) {
+                            setModalImageAspect(img.naturalWidth / img.naturalHeight);
+                          }
+                        }}
                       />
-                      {/* Restaurant badge over photo */}
-                      <div className="absolute bottom-3 left-3 right-3">
-                        <div className="bg-card/95 backdrop-blur-md rounded-2xl p-3 flex items-center justify-between border border-border/40 shadow-md">
-                          <div>
-                            <p className="font-bold text-xs text-foreground">{activePost.restaurant.name}</p>
-                            <p className="text-[9px] text-muted-foreground/60 mt-0.5 truncate max-w-[200px]">{activePost.restaurant.address}</p>
-                          </div>
-                          <div className="flex items-center gap-1 bg-gradient-to-br from-orange-500 to-amber-500 px-2 py-0.5 rounded-lg shadow-xs text-white">
-                            <Star className="w-3 h-3 fill-white text-white" />
-                            <span className="text-[10px] font-extrabold">{activePost.restaurant.rating}</span>
-                          </div>
-                        </div>
-                      </div>
                     </div>
 
                     {/* Caption & Time */}

@@ -84,34 +84,29 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick }
       {/* Image */}
       <div 
         onClick={onPostClick}
-        className="relative aspect-square cursor-pointer overflow-hidden group"
+        className="relative aspect-square cursor-pointer overflow-hidden group bg-black flex items-center justify-center"
       >
+        {/* Blurred ambient backdrop */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-45 select-none">
+          <Image
+            src={post.image}
+            alt=""
+            fill
+            className="object-cover blur-2xl scale-110"
+            sizes="100px"
+          />
+        </div>
+
+        {/* Foreground uncropped image */}
         <Image
           src={post.image}
           alt={post.caption}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          className="object-contain transition-transform duration-500 group-hover:scale-[1.02]"
           sizes="(max-width: 512px) 100vw, 512px"
           priority={priority}
           loading={priority ? "eager" : "lazy"}
         />
-        {/* Restaurant badge */}
-        <div className="absolute bottom-3 left-3 right-3 transition-transform duration-300 group-hover:translate-y-[-2px]">
-          <div className="bg-card/95 backdrop-blur-md rounded-2xl p-3.5 flex items-center justify-between border border-border/40 shadow-md">
-            <div>
-              <p className="font-bold text-sm text-foreground">{post.restaurant.name}</p>
-              <p className="text-[10px] text-muted-foreground/60 truncate max-w-[200px] mt-0.5">
-                {post.restaurant.address}
-              </p>
-            </div>
-            <div className="flex items-center gap-1 bg-gradient-to-br from-orange-500 to-amber-500 px-2.5 py-1 rounded-xl shadow-xs text-white">
-              <Star className="w-3.5 h-3.5 fill-white text-white" />
-              <span className="text-xs font-extrabold">
-                {post.restaurant.rating}
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Actions */}
