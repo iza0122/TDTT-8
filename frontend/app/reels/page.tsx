@@ -482,7 +482,22 @@ export default function ReelsPage() {
               Bình luận ({activeComments.length})
             </h4>
 
-            {activeComments.length > 0 ? (
+            {isFetchingComments ? (
+              <div className="space-y-4 py-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={`reel-comment-skeleton-${i}`} className="flex gap-3 animate-pulse">
+                    <div className="w-7 h-7 rounded-full bg-secondary/80 dark:bg-muted/30 flex-shrink-0" />
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="h-8 bg-secondary/60 dark:bg-muted/20 rounded-2xl w-full border border-border/10" />
+                      <div className="flex gap-3 px-1.5 text-[8px] font-bold">
+                        <div className="h-2 bg-secondary/80 dark:bg-muted/30 rounded-full w-10" />
+                        <div className="h-2 bg-secondary/80 dark:bg-muted/30 rounded-full w-10" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : activeComments.length > 0 ? (
               <div className="divide-y divide-border/10 pb-4">
                 {activeComments.map(c => renderComment(c))}
               </div>

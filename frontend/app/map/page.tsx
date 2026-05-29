@@ -158,7 +158,26 @@ export default function MapPage() {
 
         {/* Restaurants vertical scroll area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-hide">
-          {filteredRestaurants.length > 0 ? (
+          {isFetchingRestaurants ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div 
+                  key={`map-skeleton-${i}`} 
+                  className="w-full flex gap-3 p-3.5 rounded-2xl border border-border/60 bg-card shadow-xs animate-pulse"
+                >
+                  <div className="w-14 h-14 bg-secondary/80 dark:bg-muted/30 rounded-xl flex-shrink-0" />
+                  <div className="flex-1 space-y-2 py-1 min-w-0">
+                    <div className="h-3.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-2/3 animate-pulse" />
+                    <div className="h-2.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-1/2 animate-pulse" />
+                    <div className="flex justify-between items-center pt-1.5">
+                      <div className="w-12 h-4 bg-secondary/80 dark:bg-muted/30 rounded-md" />
+                      <div className="w-12 h-3.5 bg-secondary/80 dark:bg-muted/30 rounded-full" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredRestaurants.length > 0 ? (
             filteredRestaurants.map((res, index) => {
               const isSelected = selectedRestaurant?.id === res.id;
               return (
