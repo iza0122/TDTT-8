@@ -159,9 +159,9 @@ const defaultComments: { [postId: string]: Comment[] } = {
 
 export default function HomePage() {
   const { user } = useAuth();
-  const displayName = user?.full_name || userProfile.name;
-  const displayUsername = user?.email ? user.email.split('@')[0] : userProfile.username;
-  const displayAvatar = user?.avatar_url || userProfile.avatar;
+  const displayName = user?.full_name || "Khách";
+  const displayUsername = user?.email ? user.email.split('@')[0] : "guest";
+  const displayAvatar = user?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
 
   const [postsList, setPostsList] = useState(foodPosts);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);

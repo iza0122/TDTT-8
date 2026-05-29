@@ -1,8 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { ChefHat } from "lucide-react";
 
 interface User {
   id: number;
@@ -30,7 +31,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
+
+  const publicPaths = ["/login", "/register", "/forgot-password", "/terms", "/privacy"];
+  const isPublicPath = publicPaths.includes(pathname || "");
 
   useEffect(() => {
     // Load state from localStorage on mount
@@ -48,6 +53,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      if (!token && !isPublicPath) {
+        router.replace("/login");
+      }
+    }
+  }, [token, loading, pathname, router, isPublicPath]);
 
   const login = (newToken: string, newUser: User) => {
     localStorage.setItem("token", newToken);
@@ -74,6 +87,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("user", JSON.stringify(newUserData));
     setUser(newUserData);
   };
+
+  // Prevent flash of protected page content while checking or redirecting
+  if (loading || (!token && !isPublicPath)) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center space-y-4 animate-pulse">
+          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-lg border border-primary/20">
+            <ChefHat className="w-9 h-9 animate-bounce" />
+          </div>
+          <div className="text-center space-y-1">
+            <h2 className="text-xl font-black bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
+              FoodieGram
+            </h2>
+            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+              Đang xác thực tài khoản...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser }}>

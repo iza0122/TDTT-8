@@ -120,10 +120,10 @@ export default function RegisterPage() {
                   {passwordRequirements.map((req, index) => (
                     <span
                       key={index}
-                      className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${
+                      className={`text-xs px-2.5 py-1 rounded-full flex items-center gap-1 border transition-all duration-200 ${
                         req.met
-                          ? "bg-accent/20 text-accent"
-                          : "bg-muted text-muted-foreground"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-muted text-muted-foreground border-transparent"
                       }`}
                     >
                       {req.met && <Check className="w-3 h-3" />}

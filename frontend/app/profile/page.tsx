@@ -70,10 +70,10 @@ export default function ProfilePage() {
     );
   }
 
-  const displayName = user?.full_name || profileStats?.full_name || userProfile.name;
-  const displayUsername = user?.email ? user.email.split('@')[0] : (profileStats?.email ? profileStats.email.split('@')[0] : userProfile.username);
-  const displayAvatar = user?.avatar_url || profileStats?.avatar_url || userProfile.avatar;
-  const displayBio = profileStats?.bio || userProfile.bio;
+  const displayName = user?.full_name || profileStats?.full_name || "Blogger ẩm thực";
+  const displayUsername = user?.email ? user.email.split('@')[0] : (profileStats?.email ? profileStats.email.split('@')[0] : "blogger");
+  const displayAvatar = user?.avatar_url || profileStats?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
+  const displayBio = profileStats?.bio || "Đam mê ẩm thực & Chia sẻ quán ngon";
 
   const postsCount = profileStats?.posts_count ?? userProfile.posts;
   const followersCount = profileStats?.followers_count ?? userProfile.followers;

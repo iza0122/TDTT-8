@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from "firebase/auth";
 
 // Sử dụng các biến cấu hình từ env hoặc fallback về các giá trị mock dự phòng để tránh crash
 const firebaseConfig = {
@@ -21,4 +21,4 @@ googleProvider.setCustomParameters({
   prompt: "select_account"
 });
 
-export { auth, googleProvider, signInWithPopup };
+export { auth, googleProvider, signInWithPopup, sendPasswordResetEmail };
