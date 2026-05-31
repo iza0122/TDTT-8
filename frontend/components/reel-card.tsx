@@ -57,17 +57,76 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
     setIsPlaying(isActive);
   }, [isActive]);
 
+  const isPlayingRef = useRef(isPlaying);
   useEffect(() => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = isMuted;
-    if (isActive && isPlaying) {
-      videoRef.current.play().catch((err) => {
-        console.warn("Autoplay blocked or failed:", err);
-      });
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = isMuted;
+    if (isActive && isPlayingRef.current) {
+      // Check if user has interacted with the document yet
+      const hasInteraction = typeof window !== "undefined" && 
+        ((window.navigator as any).userActivation?.hasBeenActive ?? false);
+      
+      // If there has been no interaction yet (e.g. first load) and video is paused,
+      // skip programmatic autoplay to prevent browser blocking and element tainting.
+      if (!hasInteraction && video.paused) {
+        console.log("No user gesture detected yet on first load. Skipping autoplay to avoid Safari lock.");
+        setIsPlaying(false);
+        return;
+      }
+
+      if (video.paused) {
+        video.play().catch((err) => {
+          console.warn("Autoplay blocked or failed:", err);
+          setIsPlaying(false);
+        });
+      }
     } else {
-      videoRef.current.pause();
+      if (!video.paused) {
+        video.pause();
+      }
     }
-  }, [isActive, isPlaying, isMuted]);
+  }, [isActive, isMuted]);
+
+  const handlePlayPause = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isPlaying) {
+      video.pause();
+      setIsPlaying(false);
+    } else {
+      video.muted = isMuted;
+      
+      // Play synchronously inside the click stack to bypass iOS Safari gesture checking
+      const playPromise = video.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch((err) => {
+            console.error("Play gesture failed, trying load() recovery:", err);
+            // Self-healing recovery: load() completely resets the media element and clears taint
+            video.load();
+            video.play()
+              .then(() => {
+                setIsPlaying(true);
+              })
+              .catch((retryErr) => {
+                console.error("Recovery play failed:", retryErr);
+                setIsPlaying(false);
+              });
+          });
+      }
+    }
+  };
 
   const toggleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -176,6 +235,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
             {/* Foreground uncropped media */}
             {isVideoFile ? (
               <video
+                key={reel.video}
                 ref={videoRef}
                 src={reel.video}
                 poster={reel.thumbnail}
@@ -184,6 +244,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
                 muted={isMuted}
                 playsInline
                 autoPlay={isActive}
+                preload="metadata"
               />
             ) : (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
@@ -202,8 +263,8 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
 
             {/* Play/Pause Overlay */}
             <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="absolute inset-0 flex items-center justify-center z-15 cursor-pointer"
+              onClick={handlePlayPause}
+              className="absolute inset-0 flex items-center justify-center z-20 cursor-pointer"
             >
               {!isPlaying && (
                 <div className="w-16 h-16 bg-white/25 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 duration-300">
