@@ -250,7 +250,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
                 ref={videoRef}
                 src={reel.video}
                 poster={reel.thumbnail}
-                className="relative z-10 w-full h-full object-contain"
+                className="relative z-10 w-full h-full object-contain pointer-events-none"
                 loop
                 muted={isMuted}
                 playsInline
@@ -270,12 +270,12 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
                 />
               </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-10 pointer-events-none" />
 
             {/* Play/Pause Overlay */}
             <button
               onClick={handlePlayPause}
-              className="absolute inset-0 flex items-center justify-center z-20 cursor-pointer"
+              className="absolute inset-0 flex items-center justify-center z-20 cursor-pointer pointer-events-auto"
             >
               {!isPlaying && (
                 <div className="w-16 h-16 bg-white/25 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 duration-300">
