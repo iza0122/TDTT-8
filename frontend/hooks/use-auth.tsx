@@ -59,6 +59,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const originalFetch = window.fetch;
     
     window.fetch = async (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as any)?.url || "unknown";
+      
+      // Chỉ log những request chọc vào API nội bộ hệ thống để tránh loãng console
+      const isInternalApi = url.includes("/api/");
+      if (isInternalApi) {
+        console.log(`📡 [Auth:TokenInterceptor] Đang đánh chặn yêu cầu API: ${url}`);
+      }
+
       const storedToken = localStorage.getItem("token");
       const storedRefreshToken = localStorage.getItem("refresh_token");
 
@@ -70,10 +78,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const payload = JSON.parse(window.atob(base64));
           
           const exp = payload.exp * 1000;
+          const expiresAt = new Date(exp).toLocaleTimeString();
           const isExpiredOrExpiringSoon = exp < Date.now() + 5 * 60 * 1000; // Expired or expiring within 5 minutes
 
           if (isExpiredOrExpiringSoon) {
-            console.log("[useAuth] Token is expired or expiring soon, refreshing...");
+            console.warn(`⏳ [Auth:TokenInterceptor] Phát hiện token sắp hết hạn hoặc đã hết hạn (Hết hạn lúc: ${expiresAt}). Tiến hành tự động nạp mới token...`);
             
             const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBRfhmp9BLcXtc2N2q4okE6TUyXihi18cc";
             
@@ -92,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const newToken = data.id_token;
               const newRefreshToken = data.refresh_token;
 
-              console.log("[useAuth] Token refreshed successfully!");
+              console.log("⚡ [Auth:TokenInterceptor] Firebase làm mới token thành công! Đang đồng bộ và cập nhật Header Authorization...");
 
               // Save new tokens to localStorage and React state
               localStorage.setItem("token", newToken);
@@ -114,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
               }
             } else {
-              console.error("[useAuth] Failed to refresh token, logging out...");
+              console.error("🚨 [Auth:TokenInterceptor] Làm mới token thất bại (Token có thể đã bị thu hồi/vô hiệu hóa). Tiến hành cưỡng chế đăng xuất!");
               // Token refresh failed (e.g. revoked), logout user
               localStorage.removeItem("token");
               localStorage.removeItem("refresh_token");
@@ -123,9 +132,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(null);
               router.replace("/login");
             }
+          } else {
+            if (isInternalApi) {
+              console.log(`🟢 [Auth:TokenInterceptor] Token hiện tại vẫn còn hiệu lực (Hết hạn lúc: ${expiresAt}). Cho phép request đi qua.`);
+            }
           }
         } catch (e) {
-          console.error("[useAuth] Error during token refresh interception:", e);
+          console.error("❌ [Auth:TokenInterceptor] Có lỗi trong quá trình đánh chặn tự động làm mới token:", e);
         }
       }
 

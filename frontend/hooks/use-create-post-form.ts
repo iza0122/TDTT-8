@@ -16,6 +16,8 @@ export interface Restaurant {
 
 function generateVideoThumbnail(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
+    console.log(`📹 [Upload:Thumbnail] Khởi chạy trích xuất ảnh thu nhỏ cho tệp video: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
+    const startTime = Date.now();
     const video = document.createElement("video");
     video.style.position = "absolute";
     video.style.width = "1px";
@@ -29,10 +31,12 @@ function generateVideoThumbnail(file: File): Promise<Blob> {
     
     // Append to body to force mobile hardware decoders to process frames
     document.body.appendChild(video);
+    console.log("📌 [Upload:Thumbnail] Đã gắn thẻ <video> ẩn vào cuối cây DOM body.");
     
     // Set a timeout of 3.5 seconds to prevent hanging on mobile
     const timeoutId = setTimeout(() => {
       cleanup();
+      console.warn(`⏳ [Upload:Thumbnail] Đã kích hoạt cơ chế Timeout (3.5 giây) trên di động. Bỏ qua trích xuất thumbnail để tiếp tục upload video.`);
       reject(new Error("Timeout khi trích xuất ảnh thumbnail từ video"));
     }, 3500);
 
@@ -41,28 +45,34 @@ function generateVideoThumbnail(file: File): Promise<Blob> {
       if (video.parentNode) {
         try {
           video.parentNode.removeChild(video);
+          console.log("🧹 [Upload:Thumbnail] Đã gỡ bỏ thẻ <video> ẩn khỏi DOM body thành công.");
         } catch (e) {}
       }
       try {
         URL.revokeObjectURL(video.src);
+        console.log("🧹 [Upload:Thumbnail] Đã giải phóng bộ nhớ ObjectURL thành công.");
       } catch (e) {}
     };
     
     video.onloadeddata = () => {
+      console.log(`⏱️ [Upload:Thumbnail] video.onloadeddata kích hoạt sau ${Date.now() - startTime}ms. Tiến hành nhảy đến giây thứ 1.0...`);
       video.currentTime = 1.0;
     };
     
     video.onseeked = () => {
       try {
+        console.log(`⏱️ [Upload:Thumbnail] video.onseeked kích hoạt sau ${Date.now() - startTime}ms. Khởi tạo canvas vẽ ảnh...`);
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          console.log(`🎨 [Upload:Thumbnail] Vẽ luồng video vào Canvas thành công (${video.videoWidth}x${video.videoHeight}). Đang nén ảnh sang Blob JPEG...`);
           canvas.toBlob((blob) => {
             cleanup();
             if (blob) {
+              console.log(`🎉 [Upload:Thumbnail] Trích xuất thành công! Dung lượng ảnh thu nhỏ: ${(blob.size / 1024).toFixed(2)} KB. Tổng thời gian xử lý: ${Date.now() - startTime}ms`);
               resolve(blob);
             } else {
               reject(new Error("Không thể trích xuất ảnh thumbnail từ video"));
@@ -80,6 +90,7 @@ function generateVideoThumbnail(file: File): Promise<Blob> {
     
     video.onerror = () => {
       cleanup();
+      console.error("❌ [Upload:Thumbnail] Trình duyệt báo lỗi khi nạp hoặc giải mã tệp video.");
       reject(new Error("Lỗi khi tải file video để tạo thumbnail"));
     };
 
@@ -87,7 +98,7 @@ function generateVideoThumbnail(file: File): Promise<Blob> {
     try {
       video.load();
     } catch (e) {
-      console.warn("video.load() warning:", e);
+      console.warn("⚠️ [Upload:Thumbnail] Lỗi khi gọi load() cưỡng chế:", e);
     }
   });
 }

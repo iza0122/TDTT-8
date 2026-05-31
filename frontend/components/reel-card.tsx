@@ -66,6 +66,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
     const video = videoRef.current;
     if (!video) return;
     video.muted = isMuted;
+    
     if (isActive && isPlayingRef.current) {
       // Check if user has interacted with the document yet
       const hasInteraction = typeof window !== "undefined" && 
@@ -74,23 +75,29 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
       // If there has been no interaction yet (e.g. first load) and video is paused,
       // skip programmatic autoplay to prevent browser blocking and element tainting.
       if (!hasInteraction && video.paused) {
-        console.log("No user gesture detected yet on first load. Skipping autoplay to avoid Safari lock.");
+        console.log("ℹ️ [ReelCard:Video] Bỏ qua tự động phát ở lần đầu tải trang (Chưa có tương tác từ người dùng) để tránh bị Safari/Chrome khóa cứng thẻ video.");
         setIsPlaying(false);
         return;
       }
 
       if (video.paused) {
-        video.play().catch((err) => {
-          console.warn("Autoplay blocked or failed:", err);
-          setIsPlaying(false);
-        });
+        console.log(`🎬 [ReelCard:Video] Đang chuẩn bị tự động phát video: ${reel.video}`);
+        video.play()
+          .then(() => {
+            console.log(`✅ [ReelCard:Video] Tự động phát thành công: ${reel.video}`);
+          })
+          .catch((err) => {
+            console.warn("❌ [ReelCard:Video] Trình duyệt chặn tự động phát:", err.message || err);
+            setIsPlaying(false);
+          });
       }
     } else {
       if (!video.paused) {
+        console.log(`⏸️ [ReelCard:Video] Đang dừng phát video do mất kích hoạt (inactive): ${reel.video}`);
         video.pause();
       }
     }
-  }, [isActive, isMuted]);
+  }, [isActive, isMuted, reel.video]);
 
   const handlePlayPause = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -98,9 +105,11 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
     if (!video) return;
 
     if (isPlaying) {
+      console.log(`⏸️ [ReelCard:Video] Người dùng bấm Dừng phát video (Manual Pause): ${reel.video}`);
       video.pause();
       setIsPlaying(false);
     } else {
+      console.log(`▶️ [ReelCard:Video] Người dùng bấm Phát video (Manual Play) đồng bộ: ${reel.video}`);
       video.muted = isMuted;
       
       // Play synchronously inside the click stack to bypass iOS Safari gesture checking
@@ -109,18 +118,20 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
+            console.log(`✅ [ReelCard:Video] Phát đồng bộ theo cử chỉ người dùng thành công: ${reel.video}`);
             setIsPlaying(true);
           })
           .catch((err) => {
-            console.error("Play gesture failed, trying load() recovery:", err);
+            console.warn("⚠️ [ReelCard:Video] Phát đồng bộ lỗi, kích hoạt quy trình tự phục hồi bằng load():", err);
             // Self-healing recovery: load() completely resets the media element and clears taint
             video.load();
             video.play()
               .then(() => {
+                console.log(`🩹 [ReelCard:Video] Tự phục hồi thành công! Video đang phát.`);
                 setIsPlaying(true);
               })
               .catch((retryErr) => {
-                console.error("Recovery play failed:", retryErr);
+                console.error("❌ [ReelCard:Video] Quy trình tự phục hồi thất bại hoàn toàn:", retryErr);
                 setIsPlaying(false);
               });
           });
