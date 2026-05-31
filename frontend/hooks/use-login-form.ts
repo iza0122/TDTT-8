@@ -100,7 +100,7 @@ export function useLoginForm() {
         }
       }
 
-      login(data.access_token, data.user);
+      login(data.access_token, data.user, data.refresh_token);
 
       toast({
         title: "Đăng nhập thành công! 🎉",
@@ -142,7 +142,7 @@ export function useLoginForm() {
         throw new Error(data.detail || "Đồng bộ tài khoản Google thất bại.");
       }
 
-      login(data.access_token, data.user);
+      login(data.access_token, data.user, data.refresh_token);
 
       toast({
         title: "Đăng nhập Google thành công! 🚀",

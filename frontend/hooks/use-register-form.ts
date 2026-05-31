@@ -161,7 +161,7 @@ export function useRegisterForm() {
       }
 
       if (loginResponse.ok) {
-        login(loginData.access_token, loginData.user);
+        login(loginData.access_token, loginData.user, loginData.refresh_token);
         router.push("/");
       } else {
         router.push("/login");
@@ -200,7 +200,7 @@ export function useRegisterForm() {
         throw new Error(data.detail || "Đồng bộ tài khoản Google thất bại.");
       }
 
-      login(data.access_token, data.user);
+      login(data.access_token, data.user, data.refresh_token);
 
       toast({
         title: "Đăng nhập Google thành công! 🚀",

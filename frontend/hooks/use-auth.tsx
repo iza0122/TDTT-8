@@ -19,7 +19,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (token: string, user: User) => void;
+  login: (token: string, user: User, refreshToken?: string) => void;
   logout: () => void;
   updateUser: (updatedUser: Partial<User>) => void;
 }
@@ -54,6 +54,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Overriding window.fetch globally to intercept API requests and refresh expired tokens
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    
+    window.fetch = async (input, init) => {
+      const storedToken = localStorage.getItem("token");
+      const storedRefreshToken = localStorage.getItem("refresh_token");
+
+      if (storedToken && storedRefreshToken) {
+        try {
+          // Parse JWT expiration without external libraries
+          const base64Url = storedToken.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const payload = JSON.parse(window.atob(base64));
+          
+          const exp = payload.exp * 1000;
+          const isExpiredOrExpiringSoon = exp < Date.now() + 5 * 60 * 1000; // Expired or expiring within 5 minutes
+
+          if (isExpiredOrExpiringSoon) {
+            console.log("[useAuth] Token is expired or expiring soon, refreshing...");
+            
+            const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBRfhmp9BLcXtc2N2q4okE6TUyXihi18cc";
+            
+            // Request fresh token via Firebase Securetoken REST API
+            const response = await originalFetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: new URLSearchParams({
+                grant_type: "refresh_token",
+                refresh_token: storedRefreshToken
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              const newToken = data.id_token;
+              const newRefreshToken = data.refresh_token;
+
+              console.log("[useAuth] Token refreshed successfully!");
+
+              // Save new tokens to localStorage and React state
+              localStorage.setItem("token", newToken);
+              localStorage.setItem("refresh_token", newRefreshToken);
+              setToken(newToken);
+
+              // Rewrite the Authorization header in the request if present
+              if (init && init.headers) {
+                if (init.headers instanceof Headers) {
+                  init.headers.set("Authorization", `Bearer ${newToken}`);
+                } else if (Array.isArray(init.headers)) {
+                  const idx = init.headers.findIndex(([key]) => key.toLowerCase() === "authorization");
+                  if (idx !== -1) {
+                    init.headers[idx] = ["Authorization", `Bearer ${newToken}`];
+                  }
+                } else {
+                  (init.headers as any)["Authorization"] = `Bearer ${newToken}`;
+                  (init.headers as any)["authorization"] = `Bearer ${newToken}`;
+                }
+              }
+            } else {
+              console.error("[useAuth] Failed to refresh token, logging out...");
+              // Token refresh failed (e.g. revoked), logout user
+              localStorage.removeItem("token");
+              localStorage.removeItem("refresh_token");
+              localStorage.removeItem("user");
+              setToken(null);
+              setUser(null);
+              router.replace("/login");
+            }
+          }
+        } catch (e) {
+          console.error("[useAuth] Error during token refresh interception:", e);
+        }
+      }
+
+      return originalFetch(input, init);
+    };
+
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, [router]);
+
   useEffect(() => {
     if (!loading) {
       if (!token && !isPublicPath) {
@@ -62,15 +145,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [token, loading, pathname, router, isPublicPath]);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = (newToken: string, newUser: User, refreshToken?: string) => {
     localStorage.setItem("token", newToken);
     localStorage.setItem("user", JSON.stringify(newUser));
+    if (refreshToken) {
+      localStorage.setItem("refresh_token", refreshToken);
+    }
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
     setToken(null);
     setUser(null);

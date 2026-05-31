@@ -17,10 +17,36 @@ export interface Restaurant {
 function generateVideoThumbnail(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
-    video.preload = "metadata";
+    video.style.position = "absolute";
+    video.style.width = "1px";
+    video.style.height = "1px";
+    video.style.opacity = "0";
+    video.style.pointerEvents = "none";
+    video.preload = "auto";
     video.muted = true;
     video.playsInline = true;
     video.src = URL.createObjectURL(file);
+    
+    // Append to body to force mobile hardware decoders to process frames
+    document.body.appendChild(video);
+    
+    // Set a timeout of 3.5 seconds to prevent hanging on mobile
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error("Timeout khi trích xuất ảnh thumbnail từ video"));
+    }, 3500);
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      if (video.parentNode) {
+        try {
+          video.parentNode.removeChild(video);
+        } catch (e) {}
+      }
+      try {
+        URL.revokeObjectURL(video.src);
+      } catch (e) {}
+    };
     
     video.onloadeddata = () => {
       video.currentTime = 1.0;
@@ -35,6 +61,7 @@ function generateVideoThumbnail(file: File): Promise<Blob> {
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           canvas.toBlob((blob) => {
+            cleanup();
             if (blob) {
               resolve(blob);
             } else {
@@ -42,17 +69,26 @@ function generateVideoThumbnail(file: File): Promise<Blob> {
             }
           }, "image/jpeg", 0.85);
         } else {
+          cleanup();
           reject(new Error("Không thể tạo canvas context"));
         }
-        URL.revokeObjectURL(video.src);
       } catch (err) {
+        cleanup();
         reject(err);
       }
     };
     
     video.onerror = () => {
+      cleanup();
       reject(new Error("Lỗi khi tải file video để tạo thumbnail"));
     };
+
+    // Force load start on mobile
+    try {
+      video.load();
+    } catch (e) {
+      console.warn("video.load() warning:", e);
+    }
   });
 }
 

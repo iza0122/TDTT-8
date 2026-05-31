@@ -167,6 +167,7 @@ def login_user(db: Session, data: LoginRequest) -> dict:
             
             return {
                 "access_token": id_token,
+                "refresh_token": res_json.get("refreshToken"),
                 "user": db_user
             }
             
