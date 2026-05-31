@@ -271,7 +271,7 @@ def login_google_user(db: Session, data: GoogleLoginRequest) -> dict:
     Tự động tạo mới tài khoản nếu chưa tồn tại (Auto-provision).
     """
     try:
-        decoded_token = auth.verify_id_token(data.id_token)
+        decoded_token = auth.verify_id_token(data.id_token, clock_skew_seconds=10)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -52,8 +52,6 @@ interface Comment {
   replies?: Comment[];
 }
 
-// Comments are fetched dynamically from the backend interact API!
-
 export default function HomePage() {
   const { user, token } = useAuth();
   const displayName = user?.full_name || "Khách";
@@ -65,7 +63,6 @@ export default function HomePage() {
   const [suggestedRestaurants, setSuggestedRestaurants] = useState<any[]>([]);
   const [showModalMenu, setShowModalMenu] = useState(false);
   const pendingLikes = useRef<Record<string, boolean>>({});
-
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -99,7 +96,6 @@ export default function HomePage() {
             isSaved: false
           }));
           setPostsList(mapped);
-
         }
       } catch (err) {
         console.error("Lỗi khi tải bài viết từ API:", err);
@@ -203,7 +199,6 @@ export default function HomePage() {
       const categoryId = activeCategory.toLowerCase(); // e.g. "pho", "bun", "com", "banh"
       const postCategory = post.restaurant.category.toLowerCase(); // e.g. "phở", "bún chả", "bánh mì"
       
-      // Map category IDs to Vietnamese equivalents to match
       const categoryMap: { [key: string]: string } = {
         pho: "phở",
         bun: "bún",
@@ -236,75 +231,97 @@ export default function HomePage() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background font-sans select-none antialiased">
+      
+      {/* Custom Spring Kinetics CSS injected via Style Block */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up-slow {
+          animation: slideUp 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.96) translateY(12px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+      `}} />
+
       {/* Outer Layout Container - Centered and Grid on Desktop */}
       <div className="max-w-7xl mx-auto px-0 md:px-4 lg:grid lg:grid-cols-12 lg:gap-8">
         
         {/* Left Sidebar - Desktop (Hidden on Mobile/Tablet) */}
-        <aside className="hidden lg:flex flex-col col-span-3 sticky top-0 h-screen py-8 justify-between border-r border-border/80 bg-card/30 backdrop-blur-md pr-6">
+        <aside className="hidden lg:flex flex-col col-span-3 sticky top-0 h-screen py-8 justify-between border-r border-border/40 bg-card/10 backdrop-blur-md pr-6">
           <div className="space-y-8">
             {/* Brand Logo */}
             <div className="px-4">
-              <h1 className="text-2xl font-extrabold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent tracking-tight">
+              <h1 className="text-2xl font-black bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent tracking-tight">
                 FoodieGram
               </h1>
-              <p className="text-xs text-muted-foreground mt-1 font-medium">Khám phá thế giới ẩm thực</p>
+              <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60 mt-1 font-extrabold">Khám phá ẩm thực</p>
             </div>
 
-            {/* Profile Summary Card */}
-            <div className="mx-4 p-4 rounded-2xl bg-gradient-to-br from-primary/5 via-card to-card border border-border shadow-xs">
-              <Link href={user ? "/profile" : "/login"} className="flex items-center gap-3 group">
-                <Avatar className="w-10 h-10 ring-2 ring-primary/10 transition-transform duration-300 group-hover:scale-105">
-                  <AvatarImage src={displayAvatar} alt={displayName} />
-                  <AvatarFallback className="bg-primary/20 text-primary font-bold">{displayName[0]}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">
-                    {displayName}
-                  </h3>
-                  <p className="text-xs text-muted-foreground truncate">@{displayUsername}</p>
-                </div>
-              </Link>
+            {/* Profile Summary Card - OUTER SHELL (Double-Bezel Architecture) */}
+            <div className="mx-4 p-1 bg-white/5 dark:bg-black/15 border border-white/10 dark:border-white/5 rounded-2xl shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-101">
+              {/* INNER CORE */}
+              <div className="p-3.5 rounded-[calc(1rem-2px)] bg-card/65 dark:bg-card/45 shadow-inner">
+                <Link href={user ? "/profile" : "/login"} className="flex items-center gap-3 group">
+                  <Avatar className="w-10 h-10 ring-2 ring-primary/10 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-105">
+                    <AvatarImage src={displayAvatar} alt={displayName} />
+                    <AvatarFallback className="bg-primary/20 text-primary font-bold">{displayName[0]}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-extrabold text-sm text-foreground truncate group-hover:text-primary transition-colors duration-300">
+                      {displayName}
+                    </h3>
+                    <p className="text-xs text-muted-foreground/60 truncate">@{displayUsername}</p>
+                  </div>
+                </Link>
+              </div>
             </div>
 
-            {/* Navigations Link List */}
+            {/* Navigations Link List (Spring Kinetics) */}
             <nav className="space-y-1 px-2">
-              <Link href="/" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-bold text-primary bg-primary/10 transition-all">
+              <Link href="/" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-bold text-orange-500 bg-orange-500/10 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98]">
                 <Home className="w-5 h-5" />
                 <span>Trang chủ</span>
               </Link>
-              <Link href="/reels" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/80 hover:text-primary transition-all duration-200 group">
-                <Play className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Link href="/reels" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/60 hover:text-orange-500 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98] group">
+                <Play className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors duration-300" />
                 <span>Reels quán ngon</span>
               </Link>
-              <Link href="/create" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/80 hover:text-primary transition-all duration-200 group">
-                <Camera className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Link href="/create" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/60 hover:text-orange-500 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98] group">
+                <Camera className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors duration-300" />
                 <span>Đăng bài review</span>
               </Link>
-              <Link href="/map" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/80 hover:text-primary transition-all duration-200 group">
-                <MapPin className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Link href="/map" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/60 hover:text-orange-500 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98] group">
+                <MapPin className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors duration-300" />
                 <span>Bản đồ ẩm thực</span>
               </Link>
-              <Link href="/profile" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/80 hover:text-primary transition-all duration-200 group">
-                <User className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Link href="/profile" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/60 hover:text-orange-500 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98] group">
+                <User className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors duration-300" />
                 <span>Hồ sơ cá nhân</span>
               </Link>
-              <Link href="/profile" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/80 hover:text-primary transition-all duration-200 group">
-                <Bookmark className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Link href="/profile" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/60 hover:text-orange-500 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98] group">
+                <Bookmark className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors duration-300" />
                 <span>Bài viết đã lưu</span>
               </Link>
-              <Link href="/profile" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/80 hover:text-primary transition-all duration-200 group">
-                <Heart className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+              <Link href="/profile" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/60 hover:text-orange-500 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98] group">
+                <Heart className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors duration-300" />
                 <span>Quán ăn yêu thích</span>
               </Link>
             </nav>
           </div>
 
           <div className="px-4 space-y-4">
-            <div className="flex items-center justify-center p-3 rounded-2xl bg-secondary/30 dark:bg-card/50 border border-border/80 shadow-xs">
+            <div className="flex items-center justify-center p-3 rounded-2xl bg-secondary/35 dark:bg-card/50 border border-border/40 shadow-inner">
               <ThemeToggle />
             </div>
-            <Link href="/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-secondary/80 hover:text-foreground transition-all duration-200">
+            <Link href="/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
               <Settings className="w-4 h-4" />
               <span>Cài đặt tài khoản</span>
             </Link>
@@ -312,27 +329,27 @@ export default function HomePage() {
         </aside>
 
         {/* Center Column - Main Feed (Takes full width on mobile/tablet) */}
-        <main className="col-span-12 lg:col-span-6 min-h-screen pb-8 lg:border-r lg:border-border/80">
+        <main className="col-span-12 lg:col-span-6 min-h-screen pb-8 lg:border-r lg:border-border/40">
           {/* Mobile Header (Hidden on Desktop) */}
           <div className="lg:hidden">
             <Header />
           </div>
           
-          {/* Search Bar replacing StoriesBar */}
-          <div className="bg-card border-b border-border/80 p-4">
-            <div className="max-w-lg mx-auto relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted-foreground" />
+          {/* Search Bar - Awwwards Command Style */}
+          <div className="bg-card border-b border-border/40 p-4">
+            <div className="max-w-lg mx-auto relative group">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted-foreground/60 group-focus-within:text-orange-500 transition-colors duration-300" />
               <input
                 type="text"
-                placeholder="Tìm kiếm món ăn, nhà hàng, blogger..."
+                placeholder="Tìm món ăn, nhà hàng, blogger..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-secondary/60 hover:bg-secondary/80 focus:bg-background text-foreground placeholder:text-muted-foreground pl-10 pr-10 py-2.5 rounded-2xl border border-border/60 focus:border-primary/50 focus:outline-none transition-all duration-200 text-sm"
+                className="w-full bg-secondary/40 hover:bg-secondary/60 focus:bg-background text-foreground placeholder:text-muted-foreground/60 pl-10 pr-10 py-3 rounded-2xl border border-border/40 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 focus:outline-none transition-all duration-500 text-xs font-semibold"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground p-1 rounded-full hover:bg-muted transition-all active:scale-90"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -350,36 +367,35 @@ export default function HomePage() {
                 {[1, 2].map((i) => (
                   <div 
                     key={`skeleton-${i}`} 
-                    className="bg-card/70 backdrop-blur-md rounded-3xl border border-border/80 p-4 space-y-4 animate-pulse shadow-[0_8px_30px_rgb(0,0,0,0.015)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.15)]"
+                    className="bg-card/45 dark:bg-card/25 rounded-3xl border border-border/40 p-5 space-y-4 animate-pulse shadow-xs"
                   >
                     {/* Header Skeleton */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-secondary/80 dark:bg-muted/30" />
                         <div className="space-y-1.5">
-                          <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-24 animate-pulse" />
-                          <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-32 animate-pulse" />
+                          <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-24" />
+                          <div className="h-2.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-32" />
                         </div>
                       </div>
-                      <div className="w-8 h-8 rounded-full bg-secondary/80 dark:bg-muted/30" />
+                      <div className="w-7 h-7 rounded-full bg-secondary/80 dark:bg-muted/30" />
                     </div>
 
                     {/* Image Skeleton */}
-                    <div className="relative aspect-square rounded-2xl bg-secondary/60 dark:bg-muted/20 overflow-hidden flex items-center justify-center border border-border/10" />
+                    <div className="relative aspect-square rounded-2xl bg-secondary/50 dark:bg-muted/20 border border-border/10" />
 
-                    {/* Actions and Content Skeleton */}
+                    {/* Actions Skeleton */}
                     <div className="space-y-3.5 pt-2">
                       <div className="flex justify-between items-center">
                         <div className="flex gap-4">
                           <div className="w-14 h-5 bg-secondary/80 dark:bg-muted/30 rounded-full" />
                           <div className="w-14 h-5 bg-secondary/80 dark:bg-muted/30 rounded-full" />
-                          <div className="w-6 h-6 bg-secondary/80 dark:bg-muted/30 rounded-full" />
                         </div>
                         <div className="w-6 h-6 bg-secondary/80 dark:bg-muted/30 rounded-full" />
                       </div>
                       <div className="space-y-2">
-                        <div className="h-3.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-4/5 animate-pulse" />
-                        <div className="h-3.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-2/3 animate-pulse" />
+                        <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-4/5" />
+                        <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-2/3" />
                       </div>
                     </div>
                   </div>
@@ -411,11 +427,10 @@ export default function HomePage() {
                     setPostsList(prev => prev.filter(p => p.id !== post.id));
                   }}
                 />
-
               ))
             ) : (
-              <div className="text-center py-16 px-4 bg-card rounded-3xl border border-border/60 shadow-xs max-w-md mx-auto my-4 space-y-4">
-                <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
+              <div className="text-center py-16 px-4 bg-card/45 rounded-3xl border border-border/40 shadow-xs max-w-md mx-auto my-4 space-y-4">
+                <div className="w-14 h-14 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto text-orange-500">
                   <Search className="w-6 h-6" />
                 </div>
                 <div className="space-y-1.5">
@@ -431,7 +446,7 @@ export default function HomePage() {
                     setSearchQuery("");
                     setActiveCategory("all");
                   }}
-                  className="text-xs font-bold"
+                  className="text-xs font-bold rounded-full"
                 >
                   Đặt lại bộ lọc
                 </Button>
@@ -442,40 +457,47 @@ export default function HomePage() {
 
         {/* Right Column - Explore/Suggestions Panel (Hidden on Mobile/Tablet) */}
         <aside className="hidden lg:block col-span-3 sticky top-0 h-screen py-8 pl-6 space-y-8 overflow-y-auto scrollbar-hide">
-          {/* Suggested Restaurants */}
+          {/* Suggested Restaurants (Double-Bezel Architecture) */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <Compass className="w-4 h-4 text-primary" />
+              <h3 className="font-bold text-xs text-muted-foreground/60 uppercase tracking-wider flex items-center gap-2">
+                <Compass className="w-4 h-4 text-orange-500" />
                 Quán ngon gợi ý
               </h3>
-              <Link href="/map" className="text-xs font-bold text-primary hover:underline flex items-center">
+              <Link href="/map" className="text-xs font-extrabold text-orange-500 hover:underline flex items-center transition-all">
                 Xem hết <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {suggestedRestaurants.slice(0, 3).map((res) => (
-                <Link href="/map" key={res.id} className="flex gap-3 p-3 rounded-2xl bg-card border border-border/80 shadow-xs hover:border-primary/30 transition-all duration-200 group">
-                  <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
-                    <Avatar className="w-12 h-12 rounded-xl">
-                      <AvatarImage src={res.image} alt={res.name} className="object-cover" />
-                      <AvatarFallback>{res.name[0]}</AvatarFallback>
-                    </Avatar>
-                  </div>
-                  <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
-                    <div>
-                      <h4 className="font-bold text-xs text-foreground group-hover:text-primary transition-colors truncate">
-                        {res.name}
-                      </h4>
-                      <p className="text-[10px] text-muted-foreground truncate">{res.address}</p>
+                <Link 
+                  href="/map" 
+                  key={res.id} 
+                  className="block p-1 bg-white/5 dark:bg-black/15 border border-white/10 dark:border-white/5 rounded-2xl shadow-md backdrop-blur-md transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98] group"
+                >
+                  {/* INNER CORE (Double-Bezel) */}
+                  <div className="p-2.5 rounded-[calc(1rem-2px)] bg-card/65 dark:bg-card/45 flex gap-3 shadow-inner">
+                    <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-border/20 shadow-xs">
+                      <Avatar className="w-12 h-12 rounded-xl">
+                        <AvatarImage src={res.image} alt={res.name} className="object-cover transition-transform duration-500 group-hover:scale-108" />
+                        <AvatarFallback>{res.name[0]}</AvatarFallback>
+                      </Avatar>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-0.5 bg-primary/10 px-1.5 py-0.5 rounded text-[9px] font-extrabold text-primary">
-                        <Star className="w-2.5 h-2.5 fill-primary" />
-                        <span>{res.rating}</span>
+                    <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
+                      <div>
+                        <h4 className="font-extrabold text-xs text-foreground group-hover:text-orange-500 transition-colors truncate">
+                          {res.name}
+                        </h4>
+                        <p className="text-[9px] text-muted-foreground/60 truncate mt-0.5">{res.address}</p>
                       </div>
-                      <span className="text-[10px] text-muted-foreground font-medium">{res.category}</span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-0.5 bg-orange-500/10 px-1.5 py-0.5 rounded text-[8px] font-extrabold text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-all duration-300">
+                          <Star className="w-2.5 h-2.5 fill-current" />
+                          <span>{res.rating}</span>
+                        </div>
+                        <span className="text-[9px] text-muted-foreground/60 font-semibold">{res.category}</span>
+                      </div>
                     </div>
                   </div>
                 </Link>
@@ -486,8 +508,8 @@ export default function HomePage() {
           {/* Suggested food bloggers */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
-              <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-primary" />
+              <h3 className="font-bold text-xs text-muted-foreground/60 uppercase tracking-wider flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-orange-500" />
                 Blogger nổi bật
               </h3>
             </div>
@@ -496,18 +518,18 @@ export default function HomePage() {
               {postsList.slice(0, 3).map((post) => (
                 <div key={post.id} className="flex items-center justify-between gap-3 p-1 rounded-xl">
                   <Link href="/profile" className="flex items-center gap-2.5 min-w-0 group">
-                    <Avatar className="w-8 h-8 ring-1 ring-primary/10 transition-transform group-hover:scale-105">
+                    <Avatar className="w-8 h-8 ring-2 ring-primary/10 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-105">
                       <AvatarImage src={post.user.avatar} alt={post.user.name} />
                       <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs">{post.user.name[0]}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <h4 className="font-bold text-xs text-foreground truncate group-hover:text-primary transition-colors">
+                      <h4 className="font-extrabold text-xs text-foreground truncate group-hover:text-orange-500 transition-colors">
                         {post.user.name}
                       </h4>
-                      <p className="text-[10px] text-muted-foreground truncate">@{post.user.username}</p>
+                      <p className="text-[9px] text-muted-foreground/60 truncate">@{post.user.username}</p>
                     </div>
                   </Link>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs font-bold text-primary hover:text-primary-foreground hover:bg-primary px-3 rounded-lg border border-primary/20">
+                  <Button size="sm" variant="ghost" className="h-7 text-xs font-extrabold text-orange-500 hover:text-white hover:bg-orange-500 px-3 rounded-full border border-orange-500/20 hover:scale-105 active:scale-95 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer">
                     Theo dõi
                   </Button>
                 </div>
@@ -516,9 +538,9 @@ export default function HomePage() {
           </div>
 
           {/* Footer branding and links */}
-          <div className="pt-6 border-t border-border/80 px-1 text-[10px] text-muted-foreground space-y-3">
+          <div className="pt-6 border-t border-border/40 px-1 text-[10px] text-muted-foreground/50 space-y-3">
             <p className="font-medium">© 2026 FoodieGram. All rights reserved.</p>
-            <div className="flex flex-wrap gap-x-2 gap-y-1 font-semibold">
+            <div className="flex flex-wrap gap-x-2 gap-y-1 font-semibold text-muted-foreground/60">
               <a href="#" className="hover:text-foreground transition-colors">Về chúng tôi</a>
               <span>•</span>
               <a href="#" className="hover:text-foreground transition-colors">Hỗ trợ</a>
@@ -532,9 +554,9 @@ export default function HomePage() {
 
       </div>
 
-      {/* Modal/Pop-up post detail (Proportional Vertical Flow layout) */}
+      {/* Modal/Pop-up post detail - OUTER SHELL (Double-Bezel Glassmorphism Modal) */}
       {selectedPostId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/75 backdrop-blur-md animate-in fade-in duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
           {/* Backdrop close */}
           <div className="absolute inset-0 cursor-pointer" onClick={() => {
             setSelectedPostId(null);
@@ -543,513 +565,515 @@ export default function HomePage() {
             setModalImageAspect(null);
           }} />
 
-          {/* Modal Container */}
-          <div className="relative bg-card border border-border/80 w-full max-w-xl h-[85vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col z-10 animate-in fade-in zoom-in-95 duration-200">
-            {/* Close Button */}
-            <button 
-              onClick={() => {
-                setSelectedPostId(null);
-                setReplyingTo(null);
-                setNewCommentText("");
-                setModalImageAspect(null);
-              }}
-              className="absolute top-4 right-4 z-35 p-2 rounded-full bg-black/50 text-white hover:bg-black/75 transition-all active:scale-95 cursor-pointer shadow-xs border border-border/10"
-              title="Đóng"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          {/* Modal Container - Double-Bezel Glass Layer */}
+          <div className="relative w-full max-w-xl h-[85vh] z-10 p-2 bg-white/10 dark:bg-black/35 border border-white/20 dark:border-white/10 shadow-[0_32px_64px_rgba(0,0,0,0.5)] rounded-[2.5rem] backdrop-blur-2xl flex flex-col ease-[cubic-bezier(0.34,1.56,0.64,1)] animate-in fade-in zoom-in-95 duration-300">
+            {/* INNER CORE (Double-Bezel modal structure) */}
+            <div className="flex flex-col w-full h-full rounded-[calc(2.5rem-8px)] bg-card/85 dark:bg-card/55 overflow-hidden border border-white/5 shadow-inner">
+              
+              {/* Close Button */}
+              <button 
+                onClick={() => {
+                  setSelectedPostId(null);
+                  setReplyingTo(null);
+                  setNewCommentText("");
+                  setModalImageAspect(null);
+                }}
+                className="absolute top-5 right-5 z-35 p-2 rounded-full bg-black/60 text-white hover:bg-orange-500 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shadow-md border border-white/10"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
 
-            {(() => {
-              const activePost = postsList.find(p => p.id === selectedPostId);
-              if (!activePost) return null;
+              {(() => {
+                const activePost = postsList.find(p => p.id === selectedPostId);
+                if (!activePost) return null;
 
-              const isLiked = activePost.isLiked;
-              const isSaved = activePost.isSaved;
+                const isLiked = activePost.isLiked;
+                const isSaved = activePost.isSaved;
 
-              const handleLikeDetail = async () => {
-                if (!token || pendingLikes.current[activePost.id]) return;
-                try {
-                  pendingLikes.current[activePost.id] = true;
-                  // Toggle state locally first for instant snappy UX!
-                  setPostsList(prev => prev.map(p => {
-                    if (p.id === activePost.id) {
-                      return {
-                        ...p,
-                        isLiked: !p.isLiked,
-                        likes: p.isLiked ? p.likes - 1 : p.likes + 1
-                      };
-                    }
-                    return p;
-                  }));
-                  
-                  // Call backend API in background to persist it!
-                  const res = await fetch(`/api/interact/videos/${activePost.id}/like`, {
-                    method: "POST",
-                    headers: {
-                      "Authorization": `Bearer ${token}`
-                    }
-                  });
-                  if (res.ok) {
-                    const data = await res.json();
+                const handleLikeDetail = async () => {
+                  if (!token || pendingLikes.current[activePost.id]) return;
+                  try {
+                    pendingLikes.current[activePost.id] = true;
                     setPostsList(prev => prev.map(p => {
                       if (p.id === activePost.id) {
                         return {
                           ...p,
-                          likes: data.likes_count,
-                          isLiked: data.liked
+                          isLiked: !p.isLiked,
+                          likes: p.isLiked ? p.likes - 1 : p.likes + 1
                         };
                       }
                       return p;
                     }));
-                  }
-                } catch (err) {
-                  console.error("Lỗi khi thả tim bài viết:", err);
-                } finally {
-                  pendingLikes.current[activePost.id] = false;
-                }
-              };
-
-              const handleSaveDetail = () => {
-                setPostsList(prev => prev.map(p => {
-                  if (p.id === activePost.id) {
-                    return { ...p, isSaved: !p.isSaved };
-                  }
-                  return p;
-                }));
-              };
-
-              // Handle posting new comment or reply via API
-              const handleSendComment = async (e?: React.FormEvent) => {
-                if (e) e.preventDefault();
-                if (!newCommentText.trim()) return;
-
-                try {
-                  const response = await fetch(`/api/interact/videos/${activePost.id}/comments`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "Authorization": `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                      content: newCommentText.trim(),
-                      parent_id: replyingTo ? Number(replyingTo.id) : null
-                    })
-                  });
-
-                  if (response.ok) {
-                    const c = await response.json();
-                    const newCommentObj: Comment = {
-                      id: String(c.id),
-                      userId: user?.id,
-                      user: {
-                        name: user?.full_name || displayName,
-                        username: user?.email ? user.email.split("@")[0] : displayUsername,
-                        avatar: user?.avatar_url || displayAvatar,
-                      },
-                      content: c.content,
-                      createdAt: "Vừa xong",
-                      likes: 0,
-                      replies: []
-                    };
-
-                    if (replyingTo) {
-                      setActiveComments(prev => prev.map(item => {
-                        if (item.id === replyingTo.id) {
+                    
+                    const res = await fetch(`/api/interact/videos/${activePost.id}/like`, {
+                      method: "POST",
+                      headers: {
+                        "Authorization": `Bearer ${token}`
+                      }
+                    });
+                    if (res.ok) {
+                      const data = await res.json();
+                      setPostsList(prev => prev.map(p => {
+                        if (p.id === activePost.id) {
                           return {
-                            ...item,
-                            replies: [...(item.replies || []), newCommentObj]
+                            ...p,
+                            likes: data.likes_count,
+                            isLiked: data.liked
                           };
                         }
-                        return item;
+                        return p;
                       }));
-                      setReplyingTo(null);
-                    } else {
-                      setActiveComments(prev => [...prev, newCommentObj]);
                     }
-
-                    // Increment comments count visually
-                    setPostsList(prev => prev.map(p => {
-                      if (p.id === activePost.id) {
-                        return { ...p, comments: p.comments + 1 };
-                      }
-                      return p;
-                    }));
+                  } catch (err) {
+                    console.error("Lỗi khi thả tim bài viết:", err);
+                  } finally {
+                    pendingLikes.current[activePost.id] = false;
                   }
-                } catch (err) {
-                  console.error("Lỗi khi gửi bình luận:", err);
-                }
+                };
 
-                setNewCommentText("");
-              };
+                const handleSaveDetail = () => {
+                  setPostsList(prev => prev.map(p => {
+                    if (p.id === activePost.id) {
+                      return { ...p, isSaved: !p.isSaved };
+                    }
+                    return p;
+                  }));
+                };
 
-              // Recursive comment renderer inside the render
-              const renderComment = (comment: Comment, isReply = false) => {
-                return (
-                  <div key={comment.id} className={cn("flex gap-3", isReply ? "mt-3 pl-6 border-l-2 border-primary/20 md:pl-8" : "mt-4.5")}>
-                    <Avatar className="w-7 h-7 flex-shrink-0 ring-1 ring-primary/10">
-                      <AvatarImage src={comment.user.avatar} alt={comment.user.name} />
-                      <AvatarFallback className="text-[9px] bg-primary/10 text-primary font-bold">{comment.user.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="bg-secondary/45 dark:bg-card/40 rounded-2xl px-3.5 py-2 shadow-[inset_0_1px_2px_rgba(0,0,0,0.01)] border border-border/30 hover:border-border/60 transition-colors">
-                        <p className="text-[11px] font-extrabold text-foreground flex items-center gap-1.5 flex-wrap">
-                          <span>{comment.user.name}</span>
-                          <span className="text-[9px] text-muted-foreground/60 font-medium">
-                            @{comment.user.username}
-                          </span>
-                        </p>
-                        <p className="text-xs text-foreground mt-0.5 leading-relaxed">
-                          {comment.content}
-                        </p>
-                      </div>
-                      
-                      {/* Comment actions */}
-                      <div className="flex items-center gap-3.5 mt-1 px-1.5 text-[9px] text-muted-foreground/80 font-bold select-none">
-                        <span className="font-medium text-muted-foreground/45">{comment.createdAt}</span>
-                        <button 
-                          onClick={async () => {
-                            try {
-                              const response = await fetch(`/api/interact/comments/${comment.id}/like`, {
-                                method: "POST",
-                                headers: {
-                                  "Authorization": `Bearer ${token}`
-                                }
-                              });
-                              if (response.ok) {
-                                const data = await response.json();
-                                setActiveComments(prev => {
-                                  const updateLike = (cList: Comment[]): Comment[] => {
-                                    return cList.map(c => {
-                                      if (c.id === comment.id) {
-                                        return { ...c, likes: data.likes_count };
-                                      }
-                                      if (c.replies && c.replies.length > 0) {
-                                        return { ...c, replies: updateLike(c.replies) };
-                                      }
-                                      return c;
-                                    });
-                                  };
-                                  return updateLike(prev);
-                                });
-                              }
-                            } catch (err) {
-                              console.error("Lỗi khi thích bình luận:", err);
-                            }
-                          }}
-                          className="hover:text-primary transition-colors flex items-center gap-0.5 cursor-pointer"
-                        >
-                          <span>❤️ Thích</span>
-                          {comment.likes > 0 && <span className="text-[8px] bg-primary/10 px-1 rounded-sm text-primary">{comment.likes}</span>}
-                        </button>
-                        <button 
-                          onClick={() => setReplyingTo(comment)}
-                          className="hover:text-primary transition-colors cursor-pointer"
-                        >
-                          <span>💬 Phản hồi</span>
-                        </button>
-                        {user && (user.id === Number(comment.userId) || user.role === "admin") && (
-                          <button
+                const handleSendComment = async (e?: React.FormEvent) => {
+                  if (e) e.preventDefault();
+                  if (!newCommentText.trim()) return;
+
+                  try {
+                    const response = await fetch(`/api/interact/videos/${activePost.id}/comments`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                      },
+                      body: JSON.stringify({
+                        content: newCommentText.trim(),
+                        parent_id: replyingTo ? Number(replyingTo.id) : null
+                      })
+                    });
+
+                    if (response.ok) {
+                      const c = await response.json();
+                      const newCommentObj: Comment = {
+                        id: String(c.id),
+                        userId: user?.id,
+                        user: {
+                          name: user?.full_name || displayName,
+                          username: user?.email ? user.email.split("@")[0] : displayUsername,
+                          avatar: user?.avatar_url || displayAvatar,
+                        },
+                        content: c.content,
+                        createdAt: "Vừa xong",
+                        likes: 0,
+                        replies: []
+                      };
+
+                      if (replyingTo) {
+                        setActiveComments(prev => prev.map(item => {
+                          if (item.id === replyingTo.id) {
+                            return {
+                              ...item,
+                              replies: [...(item.replies || []), newCommentObj]
+                            };
+                          }
+                          return item;
+                        }));
+                        setReplyingTo(null);
+                      } else {
+                        setActiveComments(prev => [...prev, newCommentObj]);
+                      }
+
+                      setPostsList(prev => prev.map(p => {
+                        if (p.id === activePost.id) {
+                          return { ...p, comments: p.comments + 1 };
+                        }
+                        return p;
+                      }));
+                    }
+                  } catch (err) {
+                    console.error("Lỗi khi gửi bình luận:", err);
+                  }
+
+                  setNewCommentText("");
+                };
+
+                const renderComment = (comment: Comment, isReply = false) => {
+                  return (
+                    <div key={comment.id} className={cn("flex gap-3", isReply ? "mt-3.5 pl-6 border-l border-neutral-300/60 dark:border-white/10 md:pl-8 ml-3.5" : "mt-4.5")}>
+                      <Avatar className="w-7 h-7 flex-shrink-0 ring-1 ring-orange-500/10 dark:ring-white/10 hover:scale-105 transition-transform duration-300">
+                        <AvatarImage src={comment.user.avatar} alt={comment.user.name} />
+                        <AvatarFallback className="text-[9px] bg-primary/10 text-primary font-bold">{comment.user.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        {/* Premium Glass Comment chat bubbles with soft highlights */}
+                        <div className="bg-neutral-100/60 dark:bg-neutral-900/35 border border-neutral-200/50 dark:border-white/5 rounded-2xl px-4 py-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] hover:border-neutral-300 dark:hover:border-white/10 transition-all duration-300">
+                          <p className="text-[10px] font-extrabold text-foreground flex items-center gap-1.5 flex-wrap">
+                            <span>{comment.user.name}</span>
+                            <span className="text-[9px] text-muted-foreground/60 font-medium">
+                              @{comment.user.username}
+                            </span>
+                          </p>
+                          <p className="text-xs text-foreground mt-0.5 leading-relaxed font-medium">
+                            {comment.content}
+                          </p>
+                        </div>
+                        
+                        {/* Comment actions with custom premium emoji controls */}
+                        <div className="flex items-center gap-2 mt-1 px-1 text-[9px] text-muted-foreground/75 font-bold select-none flex-wrap">
+                          <span className="font-medium text-muted-foreground/45 mr-1">{comment.createdAt}</span>
+                          
+                          <button 
                             onClick={async () => {
-                              if (!confirm("Bạn có chắc chắn muốn xóa bình luận này không?")) return;
                               try {
-                                const response = await fetch(`/api/interact/comments/${comment.id}`, {
-                                  method: "DELETE",
+                                const response = await fetch(`/api/interact/comments/${comment.id}/like`, {
+                                  method: "POST",
                                   headers: {
                                     "Authorization": `Bearer ${token}`
                                   }
                                 });
                                 if (response.ok) {
+                                  const data = await response.json();
                                   setActiveComments(prev => {
-                                    const removeComment = (cList: Comment[]): Comment[] => {
-                                      return cList
-                                        .filter(c => c.id !== comment.id)
-                                        .map(c => {
-                                          if (c.replies && c.replies.length > 0) {
-                                            return { ...c, replies: removeComment(c.replies) };
-                                          }
-                                          return c;
-                                        });
+                                    const updateLike = (cList: Comment[]): Comment[] => {
+                                      return cList.map(c => {
+                                        if (c.id === comment.id) {
+                                          return { ...c, likes: data.likes_count };
+                                        }
+                                        if (c.replies && c.replies.length > 0) {
+                                          return { ...c, replies: updateLike(c.replies) };
+                                        }
+                                        return c;
+                                      });
                                     };
-                                    return removeComment(prev);
+                                    return updateLike(prev);
                                   });
-                                  setPostsList(prev => prev.map(p => {
-                                    if (p.id === activePost.id) {
-                                      return { ...p, comments: Math.max(0, p.comments - 1) };
-                                    }
-                                    return p;
-                                  }));
-                                } else {
-                                  const errData = await response.json();
-                                  alert(errData.detail || "Không thể xóa bình luận.");
                                 }
                               } catch (err) {
-                                console.error("Lỗi khi xóa bình luận:", err);
+                                console.error("Lỗi khi thích bình luận:", err);
                               }
                             }}
-                            className="hover:text-red-500 text-red-500/80 transition-colors cursor-pointer flex items-center gap-0.5"
+                            className="hover:text-red-500 hover:bg-red-500/5 px-2 py-0.5 rounded-md transition-all duration-300 flex items-center gap-1 cursor-pointer"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Xóa</span>
+                            <span>{comment.likes > 0 ? "❤️" : "🤍"} Thích</span>
+                            {comment.likes > 0 && <span className="text-[8px] bg-red-500/10 px-1 rounded-sm text-red-500 font-extrabold">{comment.likes}</span>}
                           </button>
-                        )}
-                      </div>
-
-                      {/* Child replies */}
-                      {comment.replies && comment.replies.length > 0 && (
-                        <div className="space-y-1">
-                          {comment.replies.map(reply => renderComment(reply, true))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              };
-
-              return (
-                <>
-                  {/* Scrollable Modal Body */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
-                    {/* Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-border/30 relative">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="w-9 h-9 ring-2 ring-primary/20">
-                          <AvatarImage src={activePost.user.avatar} alt={activePost.user.name} />
-                          <AvatarFallback>{activePost.user.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-xs text-muted-foreground/75 font-semibold">@{activePost.user.username}</p>
-                          <div className="flex items-center gap-1 text-[13px] font-extrabold text-foreground mt-0.5 hover:text-primary transition-colors cursor-pointer">
-                            <MapPin className="w-3 h-3 text-primary fill-primary/15" />
-                            <span>{activePost.restaurant.name}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {user && (user.id === activePost.reviewerId || user.role === "admin") && (
-                        <div className="relative mr-8">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="rounded-full hover:bg-secondary/80"
-                            onClick={() => setShowModalMenu(!showModalMenu)}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
                           
-                          {showModalMenu && (
-                            <>
-                              <div 
-                                className="fixed inset-0 z-35" 
-                                onClick={() => setShowModalMenu(false)}
-                              />
-                              <div className="absolute right-0 mt-1 w-36 bg-card border border-border/80 rounded-xl shadow-lg py-1.5 z-45 animate-in fade-in slide-in-from-top-1 duration-150">
-                                <button
-                                  onClick={async () => {
-                                    setShowModalMenu(false);
-                                    if (!confirm("Bạn có chắc chắn muốn xóa bài viết này không?")) return;
-                                    try {
-                                      const response = await fetch(`/api/content/videos/${activePost.id}`, {
-                                        method: "DELETE",
-                                        headers: {
-                                          "Authorization": `Bearer ${token}`
-                                        }
-                                      });
-                                      if (response.ok) {
-                                        setSelectedPostId(null);
-                                        setPostsList(prev => prev.filter(p => p.id !== activePost.id));
-                                      } else {
-                                        const errData = await response.json();
-                                        alert(errData.detail || "Không thể xóa bài viết.");
-                                      }
-                                    } catch (err) {
-                                      console.error("Lỗi khi xóa bài viết:", err);
+                          <button 
+                            onClick={() => setReplyingTo(comment)}
+                            className="hover:text-orange-500 hover:bg-orange-500/5 px-2 py-0.5 rounded-md transition-all duration-300 flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>💬 Phản hồi</span>
+                          </button>
+                          
+                          {user && (user.id === Number(comment.userId) || user.role === "admin") && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm("Bạn có chắc chắn muốn xóa bình luận này không?")) return;
+                                try {
+                                  const response = await fetch(`/api/interact/comments/${comment.id}`, {
+                                    method: "DELETE",
+                                    headers: {
+                                      "Authorization": `Bearer ${token}`
                                     }
-                                  }}
-                                  className="w-full text-left px-3.5 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 transition-colors flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>Xóa bài viết</span>
-                                </button>
-                              </div>
-                            </>
+                                  });
+                                  if (response.ok) {
+                                    setActiveComments(prev => {
+                                      const removeComment = (cList: Comment[]): Comment[] => {
+                                        return cList
+                                          .filter(c => c.id !== comment.id)
+                                          .map(c => {
+                                            if (c.replies && c.replies.length > 0) {
+                                              return { ...c, replies: removeComment(c.replies) };
+                                            }
+                                            return c;
+                                          });
+                                      };
+                                      return removeComment(prev);
+                                    });
+                                    setPostsList(prev => prev.map(p => {
+                                      if (p.id === activePost.id) {
+                                        return { ...p, comments: Math.max(0, p.comments - 1) };
+                                      }
+                                      return p;
+                                    }));
+                                  } else {
+                                    const errData = await response.json();
+                                    alert(errData.detail || "Không thể xóa bình luận.");
+                                  }
+                                } catch (err) {
+                                  console.error("Lỗi khi xóa bình luận:", err);
+                                }
+                              }}
+                              className="hover:text-red-500 hover:bg-red-500/5 px-2 py-0.5 rounded-md transition-all duration-300 flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>🗑️ Xóa</span>
+                            </button>
                           )}
                         </div>
-                      )}
+                        
+                        {/* Child replies */}
+                        {comment.replies && comment.replies.length > 0 && (
+                          <div className="space-y-1">
+                            {comment.replies.map(reply => renderComment(reply, true))}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  );
+                };
 
-                    {/* Proportional dynamic aspect ratio photo matching original image */}
-                    <div 
-                      className="relative w-full rounded-2xl overflow-hidden shadow-xs border border-border/30 bg-black flex items-center justify-center transition-all duration-300"
-                      style={{ 
-                        aspectRatio: modalImageAspect ? `${modalImageAspect}` : '1 / 1',
-                        maxHeight: '55vh'
-                      }}
-                    >
-                      {/* Blurred ambient backdrop */}
-                      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-45 select-none">
+                return (
+                  <>
+                    {/* Scrollable Modal Body */}
+                    <div className="flex-1 overflow-y-auto p-4.5 space-y-4 scrollbar-hide">
+                      {/* Header */}
+                      <div className="flex items-center justify-between pb-3 border-b border-border/30 relative">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-9 h-9 ring-2 ring-primary/20">
+                            <AvatarImage src={activePost.user.avatar} alt={activePost.user.name} />
+                            <AvatarFallback>{activePost.user.name[0]}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-xs text-muted-foreground/75 font-semibold">@{activePost.user.username}</p>
+                            <div className="flex items-center gap-1 text-[13px] font-extrabold text-foreground mt-0.5 hover:text-orange-500 transition-colors cursor-pointer">
+                              <MapPin className="w-3 h-3 text-orange-500 fill-orange-500/15" />
+                              <span>{activePost.restaurant.name}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {user && (user.id === activePost.reviewerId || user.role === "admin") && (
+                          <div className="relative mr-8">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="rounded-full hover:bg-secondary/80"
+                              onClick={() => setShowModalMenu(!showModalMenu)}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                            
+                            {showModalMenu && (
+                              <>
+                                <div 
+                                  className="fixed inset-0 z-35" 
+                                  onClick={() => setShowModalMenu(false)}
+                                />
+                                <div className="absolute right-0 mt-1 w-36 bg-card border border-border/80 rounded-xl shadow-lg py-1.5 z-45 animate-in fade-in slide-in-from-top-1 duration-150">
+                                  <button
+                                    onClick={async () => {
+                                      setShowModalMenu(false);
+                                      if (!confirm("Bạn có chắc chắn muốn xóa bài viết này không?")) return;
+                                      try {
+                                        const response = await fetch(`/api/content/videos/${activePost.id}`, {
+                                          method: "DELETE",
+                                          headers: {
+                                            "Authorization": `Bearer ${token}`
+                                          }
+                                        });
+                                        if (response.ok) {
+                                          setSelectedPostId(null);
+                                          setPostsList(prev => prev.filter(p => p.id !== activePost.id));
+                                        } else {
+                                          const errData = await response.json();
+                                          alert(errData.detail || "Không thể xóa bài viết.");
+                                        }
+                                      } catch (err) {
+                                        console.error("Lỗi khi xóa bài viết:", err);
+                                      }
+                                    }}
+                                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 transition-colors flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Xóa bài viết</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Cinematic dynamic aspect ratio photo overlay backdrop */}
+                      <div 
+                        className="relative w-full rounded-2xl overflow-hidden shadow-md border border-border/30 bg-black flex items-center justify-center transition-all duration-300"
+                        style={{ 
+                          aspectRatio: modalImageAspect ? `${modalImageAspect}` : '1 / 1',
+                          maxHeight: '55vh'
+                        }}
+                      >
+                        {/* Blurred ambient backdrop */}
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-45 select-none">
+                          <Image
+                            src={activePost.image}
+                            alt=""
+                            fill
+                            className="object-cover blur-2xl scale-110"
+                            sizes="100px"
+                          />
+                        </div>
+
+                        {/* Foreground uncropped image */}
                         <Image
                           src={activePost.image}
-                          alt=""
+                          alt={activePost.caption}
                           fill
-                          className="object-cover blur-2xl scale-110"
-                          sizes="100px"
+                          className="object-contain animate-fade-in"
+                          sizes="(max-width: 576px) 100vw, 576px"
+                          priority
+                          onLoad={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            if (img.naturalWidth && img.naturalHeight) {
+                              setModalImageAspect(img.naturalWidth / img.naturalHeight);
+                            }
+                          }}
                         />
                       </div>
 
-                      {/* Foreground uncropped image */}
-                      <Image
-                        src={activePost.image}
-                        alt={activePost.caption}
-                        fill
-                        className="object-contain animate-fade-in duration-300"
-                        sizes="(max-width: 576px) 100vw, 576px"
-                        priority
-                        onLoad={(e) => {
-                          const img = e.target as HTMLImageElement;
-                          if (img.naturalWidth && img.naturalHeight) {
-                            setModalImageAspect(img.naturalWidth / img.naturalHeight);
-                          }
-                        }}
-                      />
-                    </div>
+                      {/* Caption & Time */}
+                      <div className="space-y-1.5 px-0.5">
+                        <p className="text-xs text-foreground leading-relaxed font-semibold">
+                          <span className="font-extrabold mr-1.5 text-foreground hover:text-orange-500 cursor-pointer">@{activePost.user.username}</span>
+                          {activePost.caption}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground/50 tracking-wider font-extrabold uppercase">{activePost.createdAt}</p>
+                      </div>
 
-                    {/* Caption & Time */}
-                    <div className="space-y-1.5">
-                      <p className="text-xs text-foreground leading-relaxed">
-                        <span className="font-bold mr-1.5">@{activePost.user.username}</span>
-                        {activePost.caption}
-                      </p>
-                      <p className="text-[9px] text-muted-foreground/45 tracking-wider">{activePost.createdAt}</p>
-                    </div>
+                      {/* Divider line */}
+                      <hr className="border-border/30" />
 
-                    {/* Divider line */}
-                    <hr className="border-border/30" />
-
-                    {/* Action Bar */}
-                    <div className="flex items-center justify-between py-1 bg-secondary/15 dark:bg-muted/10 rounded-xl px-2">
-                      <button
-                        onClick={handleLikeDetail}
-                        className={cn(
-                          "flex-1 py-2 flex items-center justify-center gap-1.5 text-[10px] font-extrabold rounded-lg transition-all active:scale-95 cursor-pointer",
-                          isLiked 
-                            ? "text-red-500 bg-red-500/10" 
-                            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        )}
-                      >
-                        <Heart className={cn("w-3.5 h-3.5 transition-all", isLiked ? "text-red-500 fill-red-500 scale-110" : "text-muted-foreground")} />
-                        <span>Thèm ({activePost.likes})</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          const inputEl = document.getElementById("detail-comment-input");
-                          if (inputEl) inputEl.focus();
-                        }}
-                        className="flex-1 py-2 flex items-center justify-center gap-1.5 text-[10px] font-extrabold text-muted-foreground hover:bg-secondary hover:text-foreground rounded-lg transition-all active:scale-95 cursor-pointer"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>Bình luận ({activeComments.length})</span>
-                      </button>
-
-                      <button
-                        onClick={handleSaveDetail}
-                        className={cn(
-                          "flex-1 py-2 flex items-center justify-center gap-1.5 text-[10px] font-extrabold rounded-lg transition-all active:scale-95 cursor-pointer",
-                          isSaved 
-                            ? "text-primary bg-primary/10" 
-                            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                        )}
-                      >
-                        <Bookmark className={cn("w-3.5 h-3.5", isSaved && "fill-primary")} />
-                        <span>Lưu quán</span>
-                      </button>
-                    </div>
-
-                    {/* Threaded Comments Feed */}
-                    <div className="space-y-4 pt-2">
-                      <h4 className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                        <span>Bình luận ({activeComments.length})</span>
-                      </h4>
-
-                      {isFetchingComments ? (
-                        <div className="space-y-4 py-2">
-                          {[1, 2].map((i) => (
-                            <div key={`comment-skeleton-${i}`} className="flex gap-3 animate-pulse">
-                              <div className="w-7 h-7 rounded-full bg-secondary/80 dark:bg-muted/30 flex-shrink-0" />
-                              <div className="flex-1 space-y-2 min-w-0">
-                                <div className="h-8 bg-secondary/60 dark:bg-muted/20 rounded-2xl w-full border border-border/10" />
-                                <div className="flex gap-3 px-1.5 text-[8px] font-bold">
-                                  <div className="h-2 bg-secondary/80 dark:bg-muted/30 rounded-full w-10" />
-                                  <div className="h-2 bg-secondary/80 dark:bg-muted/30 rounded-full w-10" />
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : activeComments.length > 0 ? (
-                        <div className="divide-y divide-border/10 pb-4">
-                          {activeComments.map(c => renderComment(c))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-6 text-[11px] text-muted-foreground/60 font-semibold">
-                          Chưa có bình luận nào. Hãy là người đầu tiên chia sẻ cảm nhận!
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Sticky Footer: Input comment box inside the rounded modal container */}
-                  <div className="p-3 bg-card border-t border-border/50 flex-shrink-0 rounded-b-3xl">
-                    {replyingTo && (
-                      <div className="flex items-center justify-between bg-primary/10 border border-primary/25 rounded-lg px-2.5 py-1 mb-2 text-[10px] font-bold text-primary">
-                        <span>Đang phản hồi @{replyingTo.user.username}</span>
-                        <button 
-                          onClick={() => setReplyingTo(null)}
-                          className="text-[9px] hover:underline cursor-pointer opacity-80"
+                      {/* Action Bar */}
+                      <div className="flex items-center justify-between py-1 bg-secondary/20 dark:bg-muted/10 rounded-xl px-2.5 shadow-xs border border-white/5">
+                        <button
+                          onClick={handleLikeDetail}
+                          className={cn(
+                            "flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[10px] font-extrabold rounded-lg transition-all active:scale-95 duration-300 cursor-pointer ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                            isLiked 
+                              ? "text-red-500 bg-red-500/10 shadow-xs" 
+                              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          )}
                         >
-                          Hủy
+                          <Heart className={cn("w-3.5 h-3.5 transition-all duration-300", isLiked ? "text-red-500 fill-red-500 scale-110" : "text-muted-foreground")} />
+                          <span>Thèm ({activePost.likes})</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const inputEl = document.getElementById("detail-comment-input");
+                            if (inputEl) inputEl.focus();
+                          }}
+                          className="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[10px] font-extrabold text-muted-foreground hover:bg-secondary hover:text-foreground rounded-lg transition-all active:scale-95 duration-300 cursor-pointer"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>Bình luận ({activeComments.length})</span>
+                        </button>
+
+                        <button
+                          onClick={handleSaveDetail}
+                          className={cn(
+                            "flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[10px] font-extrabold rounded-lg transition-all active:scale-95 duration-300 cursor-pointer ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                            isSaved 
+                              ? "text-orange-500 bg-orange-500/10 shadow-xs" 
+                              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          )}
+                        >
+                          <Bookmark className={cn("w-3.5 h-3.5", isSaved && "fill-orange-500 text-orange-500")} />
+                          <span>Lưu quán</span>
                         </button>
                       </div>
-                    )}
-                    
-                    <form onSubmit={handleSendComment} className="flex items-center gap-2">
-                      <Avatar className="w-7 h-7 flex-shrink-0 ring-1 ring-primary/20">
-                        <AvatarImage src={displayAvatar} alt={displayName} />
-                        <AvatarFallback>{displayName[0]}</AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="relative flex-1">
-                        <input
-                          id="detail-comment-input"
-                          type="text"
-                          value={newCommentText}
-                          onChange={(e) => setNewCommentText(e.target.value)}
-                          placeholder={replyingTo ? `Phản hồi @${replyingTo.user.username}...` : "Viết bình luận ẩm thực..."}
-                          className="w-full bg-secondary/50 hover:bg-secondary/70 focus:bg-background text-foreground text-xs placeholder:text-muted-foreground pl-3.5 pr-14 py-2 rounded-full border border-border/60 focus:border-primary/50 focus:outline-none transition-all duration-200"
-                        />
-                        {/* Camera & Emoji buttons overlay */}
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-muted-foreground/50">
-                          <button type="button" className="p-0.5 hover:text-foreground transition-colors hover:bg-muted rounded-full">
-                            <Camera className="w-3.5 h-3.5" />
-                          </button>
-                          <button type="button" className="p-0.5 hover:text-foreground transition-colors hover:bg-muted rounded-full">
-                            <Smile className="w-3.5 h-3.5" />
+
+                      {/* Threaded Comments Feed */}
+                      <div className="space-y-4 pt-2">
+                        <h4 className="font-extrabold text-[10px] text-muted-foreground/60 uppercase tracking-wider flex items-center gap-1.5 px-0.5">
+                          <span>Bình luận ({activeComments.length})</span>
+                        </h4>
+
+                        {isFetchingComments ? (
+                          <div className="space-y-4 py-2">
+                            {[1, 2].map((i) => (
+                              <div key={`comment-skeleton-${i}`} className="flex gap-3 animate-pulse">
+                                <div className="w-7 h-7 rounded-full bg-secondary/80 dark:bg-muted/30 flex-shrink-0" />
+                                <div className="flex-1 space-y-2 min-w-0">
+                                  <div className="h-8 bg-secondary/60 dark:bg-muted/20 rounded-2xl w-full border border-border/10" />
+                                  <div className="flex gap-3 px-1.5 text-[8px] font-bold">
+                                    <div className="h-2 bg-secondary/80 dark:bg-muted/30 rounded-full w-10" />
+                                    <div className="h-2 bg-secondary/80 dark:bg-muted/30 rounded-full w-10" />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : activeComments.length > 0 ? (
+                          <div className="divide-y divide-border/10 pb-4">
+                            {activeComments.map(c => renderComment(c))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 text-[11px] text-muted-foreground/50 font-semibold">
+                            Chưa có bình luận nào. Hãy là người đầu tiên chia sẻ cảm nhận!
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Sticky Footer: Input comment box inside the rounded modal container */}
+                    <div className="p-4.5 bg-card/90 dark:bg-card/65 backdrop-blur-md border-t border-border/30 flex-shrink-0 rounded-b-[calc(2.5rem-8px)]">
+                      {replyingTo && (
+                        <div className="flex items-center justify-between bg-orange-500/10 border border-orange-500/20 rounded-xl px-3 py-1.5 mb-2 text-[10px] font-bold text-orange-500 animate-fade-in">
+                          <span>Đang phản hồi @{replyingTo.user.username}</span>
+                          <button 
+                            onClick={() => setReplyingTo(null)}
+                            className="text-[9px] hover:underline cursor-pointer opacity-80"
+                          >
+                            Hủy
                           </button>
                         </div>
-                      </div>
+                      )}
+                      
+                      <form onSubmit={handleSendComment} className="flex items-center gap-3">
+                        <Avatar className="w-8 h-8 flex-shrink-0 ring-2 ring-primary/15">
+                          <AvatarImage src={displayAvatar} alt={displayName} />
+                          <AvatarFallback>{displayName[0]}</AvatarFallback>
+                        </Avatar>
+                        
+                        <div className="relative flex-1 group">
+                          <input
+                            id="detail-comment-input"
+                            type="text"
+                            value={newCommentText}
+                            onChange={(e) => setNewCommentText(e.target.value)}
+                            placeholder={replyingTo ? `Phản hồi @${replyingTo.user.username}...` : "Viết bình luận ẩm thực..."}
+                            className="w-full bg-secondary/30 hover:bg-secondary/50 focus:bg-background text-foreground text-xs placeholder:text-muted-foreground/60 pl-4 pr-16 py-2.5 rounded-full border border-border/40 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 focus:outline-none transition-all duration-300 font-semibold"
+                          />
+                          {/* Camera & Emoji buttons overlay */}
+                          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-muted-foreground/40 group-focus-within:text-muted-foreground/60 transition-colors duration-300">
+                            <button type="button" className="p-0.5 hover:text-foreground hover:scale-105 active:scale-90 transition-all rounded-full cursor-pointer">
+                              <Camera className="w-3.5 h-3.5" />
+                            </button>
+                            <button type="button" className="p-0.5 hover:text-foreground hover:scale-105 active:scale-90 transition-all rounded-full cursor-pointer">
+                              <Smile className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
 
-                      <button 
-                        type="submit" 
-                        disabled={!newCommentText.trim()}
-                        className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/95 disabled:bg-secondary disabled:text-muted-foreground/30 transition-all duration-200 flex-shrink-0 active:scale-95 cursor-pointer shadow-xs"
-                      >
-                        <Send className="w-3 h-3" />
-                      </button>
-                    </form>
-                  </div>
-                </>
-              );
-            })()}
+                        <button 
+                          type="submit" 
+                          disabled={!newCommentText.trim()}
+                          className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/95 disabled:bg-secondary disabled:text-muted-foreground/30 transition-all duration-300 flex-shrink-0 active:scale-95 hover:scale-105 cursor-pointer shadow-md"
+                        >
+                          <Send className="w-3 h-3" />
+                        </button>
+                      </form>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}

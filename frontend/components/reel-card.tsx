@@ -46,7 +46,6 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
   const [likes, setLikes] = useState(reel.likes);
   const [isPlaying, setIsPlaying] = useState(isActive);
 
-
   useEffect(() => {
     setIsLiked(reel.isLiked || false);
     setLikes(reel.likes);
@@ -145,144 +144,155 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
   const isVideoFile = reel.video.endsWith(".mp4") || reel.video.includes("video") || reel.video.includes("mixkit.co");
 
   return (
-    <div className="relative h-full w-full bg-background dark:bg-black flex items-center justify-center snap-start md:py-6">
+    <div className="relative h-full w-full bg-background dark:bg-black flex items-center justify-center snap-start md:py-6 select-none">
       {/* Wrapper to allow placing actions next to video on desktop */}
       <div className="relative flex items-end md:items-center justify-center h-full w-full max-w-[100vw] md:max-w-none md:w-auto md:gap-6">
         
-        {/* Video/Image Container - Portrait 9:16 inside a phone mockup container on desktop */}
-        <div className="relative w-full h-full max-w-[100vw] md:max-w-[calc((100vh-48px)*9/16)] md:h-[calc(100vh-48px)] aspect-[9/16] md:aspect-auto md:rounded-[36px] md:border-[10px] md:border-muted-foreground/35 md:shadow-2xl md:overflow-hidden bg-black flex items-center justify-center">
-          {/* Blurred ambient backdrop */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 select-none">
+        {/* Video/Image Container - Portrait 9:16 - OUTER BEZEL (Double-Bezel Architecture) */}
+        <div className="relative w-full h-full max-w-[100vw] md:max-w-[calc((100vh-48px)*9/16)] md:h-[calc(100vh-48px)] aspect-[9/16] md:aspect-auto md:p-1.5 md:rounded-[44px] md:bg-white/10 dark:md:bg-black/35 md:border md:border-white/20 dark:md:border-white/10 md:shadow-[0_24px_50px_rgba(0,0,0,0.4)] backdrop-blur-xl bg-black flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+          
+          {/* INNER CORE - Device screen */}
+          <div className="relative w-full h-full rounded-none md:rounded-[36px] overflow-hidden bg-black flex items-center justify-center">
+            {/* Blurred ambient backdrop */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 select-none">
+              {isVideoFile ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={reel.thumbnail || reel.video}
+                  alt=""
+                  className="w-full h-full object-cover blur-2xl scale-110"
+                />
+              ) : (
+                <Image
+                  src={reel.video}
+                  alt=""
+                  fill
+                  className="object-cover blur-2xl scale-110"
+                  sizes="50vw"
+                />
+              )}
+            </div>
+
+            {/* Foreground uncropped media */}
             {isVideoFile ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={reel.thumbnail || reel.video}
-                alt=""
-                className="w-full h-full object-cover blur-2xl scale-110"
+              <video
+                ref={videoRef}
+                src={reel.video}
+                poster={reel.thumbnail}
+                className="relative z-10 w-full h-full object-contain"
+                loop
+                muted={isMuted}
+                playsInline
+                autoPlay={isActive}
               />
             ) : (
-              <Image
-                src={reel.video}
-                alt=""
-                fill
-                className="object-cover blur-2xl scale-110"
-                sizes="50vw"
-              />
-            )}
-          </div>
-
-          {/* Foreground uncropped media */}
-          {isVideoFile ? (
-            <video
-              ref={videoRef}
-              src={reel.video}
-              poster={reel.thumbnail}
-              className="relative z-10 w-full h-full object-contain"
-              loop
-              muted={isMuted}
-              playsInline
-              autoPlay={isActive}
-            />
-          ) : (
-            <div className="absolute inset-0 z-10 flex items-center justify-center">
-              <Image
-                src={reel.video}
-                alt={reel.caption}
-                fill
-                className="object-contain"
-                sizes="(max-width: 768px) 100vw, 56.25vh"
-                priority
-                loading="eager"
-              />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-foreground/10 dark:from-black/20 via-transparent to-foreground/40 dark:to-black/60" />
-
-          {/* Play/Pause Overlay */}
-          <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="absolute inset-0 flex items-center justify-center z-10"
-          >
-            {!isPlaying && (
-              <div className="w-16 h-16 bg-foreground/20 dark:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center">
-                <Play className="w-8 h-8 text-background dark:text-white fill-background dark:fill-white ml-1" />
+              <div className="absolute inset-0 z-10 flex items-center justify-center">
+                <Image
+                  src={reel.video}
+                  alt={reel.caption}
+                  fill
+                  className="object-contain animate-fade-in duration-300"
+                  sizes="(max-width: 768px) 100vw, 56.25vh"
+                  priority
+                  loading="eager"
+                />
               </div>
             )}
-          </button>
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-10" />
 
-          {/* Bottom Info */}
-          <div className="absolute bottom-2 left-0 right-14 p-4 z-20">
-            {/* User Info */}
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-white font-semibold text-sm">@{reel.user.username}</span>
-            </div>
+            {/* Play/Pause Overlay */}
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="absolute inset-0 flex items-center justify-center z-15 cursor-pointer"
+            >
+              {!isPlaying && (
+                <div className="w-16 h-16 bg-white/25 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 duration-300">
+                  <Play className="w-8 h-8 text-white fill-white ml-1" />
+                </div>
+              )}
+            </button>
 
-            {/* Caption */}
-            <p className="text-white text-sm mb-2 line-clamp-2">{reel.caption}</p>
+            {/* Bottom Info */}
+            <div className="absolute bottom-2 left-0 right-14 p-5 z-20 space-y-2">
+              {/* User Info */}
+              <div className="flex items-center gap-2">
+                <span className="text-white font-extrabold text-sm drop-shadow-md">@{reel.user.username}</span>
+              </div>
 
-            {/* Restaurant */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-white/15 backdrop-blur-sm px-2 py-1 rounded-full">
-                <MapPin className="w-3 h-3 text-white" />
-                <span className="text-white text-xs font-medium">{reel.restaurant.name}</span>
+              {/* Caption */}
+              <p className="text-white text-xs leading-relaxed font-semibold drop-shadow-sm line-clamp-2">{reel.caption}</p>
+
+              {/* Restaurant floating tag */}
+              <div className="flex items-center gap-2 pt-0.5">
+                <div className="flex items-center gap-1.5 bg-white/10 border border-white/10 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-xs font-bold hover:bg-white/20 transition-all duration-300 cursor-pointer shadow-xs">
+                  <MapPin className="w-3.5 h-3.5 text-orange-500 fill-orange-500/15" />
+                  <span>{reel.restaurant.name}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side Actions - overlay on mobile, next to video on desktop */}
-        <div className="absolute right-3 bottom-8 md:static flex flex-col items-center gap-5 z-20">
+        {/* Right Side Actions - overlay on mobile, next to device mockup on desktop */}
+        <div className="absolute right-3.5 bottom-8 md:static flex flex-col items-center gap-5.5 z-20 select-none">
           {/* User Avatar */}
-          <div className="relative">
-            <Avatar className="w-11 h-11 ring-2 ring-white/30 md:ring-muted/50 dark:md:ring-white/30">
+          <div className="relative group">
+            <Avatar className="w-11 h-11 ring-2 ring-white/30 md:ring-orange-500/30 dark:md:ring-white/20 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-105">
               <AvatarImage src={reel.user.avatar} alt={reel.user.name} />
               <AvatarFallback>{reel.user.name[0]}</AvatarFallback>
             </Avatar>
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-primary rounded-full flex items-center justify-center shadow-md">
-              <span className="text-primary-foreground text-sm font-bold">+</span>
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4.5 h-4.5 bg-orange-500 hover:scale-110 active:scale-90 transition-all rounded-full flex items-center justify-center shadow-md cursor-pointer border border-white/20">
+              <span className="text-white text-xs font-bold">+</span>
             </div>
           </div>
 
           {/* Like */}
-          <button onClick={handleLike} className="flex flex-col items-center gap-1">
-            <div className="w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-colors">
+          <button onClick={handleLike} className="flex flex-col items-center gap-1 group">
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md",
+              isLiked 
+                ? "bg-red-500/20 border border-red-500/50 text-red-500 scale-105" 
+                : "bg-white/15 border border-white/20 text-white hover:bg-red-500 hover:border-red-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-red-500 md:hover:border-red-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-red-500 dark:md:hover:border-red-500"
+            )}>
               <Heart
                 className={cn(
-                  "w-5 h-5 transition-all",
-                  isLiked ? "text-red-500 fill-red-500" : "text-white md:text-foreground dark:md:text-white"
+                  "w-5 h-5 transition-all duration-300",
+                  isLiked ? "fill-red-500 text-red-500 scale-110 animate-fade-in" : "fill-none group-hover:scale-108 group-hover:fill-white"
                 )}
               />
             </div>
-            <span className="text-white md:text-foreground dark:md:text-white text-xs font-bold tracking-wide">{formatNumber(likes)}</span>
+            <span className="text-white md:text-neutral-800 dark:md:text-white text-[10px] font-extrabold tracking-wide drop-shadow-sm">{formatNumber(likes)}</span>
           </button>
 
           {/* Comment */}
-          <button onClick={onCommentClick} className="flex flex-col items-center gap-1">
+          <button onClick={onCommentClick} className="flex flex-col items-center gap-1 group">
             <div className={cn(
-              "w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-all duration-300",
-              isCommentsOpen && "ring-2 ring-orange-500/60 shadow-lg"
+              "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md",
+              isCommentsOpen 
+                ? "bg-orange-500/20 border border-orange-500/50 text-orange-500 scale-105" 
+                : "bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500"
             )}>
-              <MessageCircle className="w-5 h-5 text-white md:text-foreground dark:md:text-white" />
+              <MessageCircle className="w-5 h-5 fill-none group-hover:fill-white group-hover:scale-108 transition-all duration-300" />
             </div>
-            <span className="text-white md:text-foreground dark:md:text-white text-xs font-bold tracking-wide">{formatNumber(reel.comments)}</span>
+            <span className="text-white md:text-neutral-800 dark:md:text-white text-[10px] font-extrabold tracking-wide drop-shadow-sm">{formatNumber(reel.comments)}</span>
           </button>
 
           {/* Share */}
-          <button className="flex flex-col items-center gap-1">
-            <div className="w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-colors">
-              <Share2 className="w-5 h-5 text-white md:text-foreground dark:md:text-white" />
+          <button className="flex flex-col items-center gap-1 group">
+            <div className="w-10 h-10 bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md">
+              <Share2 className="w-5 h-5 group-hover:scale-108 transition-all duration-300" />
             </div>
-            <span className="text-white md:text-foreground dark:md:text-white text-xs font-bold tracking-wide">{formatNumber(reel.shares)}</span>
+            <span className="text-white md:text-neutral-800 dark:md:text-white text-[10px] font-extrabold tracking-wide drop-shadow-sm">{formatNumber(reel.shares)}</span>
           </button>
 
-          {/* Mute/Unmute sound option (Clean textless design) */}
+          {/* Mute/Unmute sound option */}
           {isVideoFile && (
-            <button onClick={toggleMute} className="flex flex-col items-center">
-              <div className="w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-colors">
+            <button onClick={toggleMute} className="flex flex-col items-center group">
+              <div className="w-10 h-10 bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md">
                 {isMuted ? (
-                  <VolumeX className="w-5 h-5 text-white md:text-foreground dark:md:text-white" />
+                  <VolumeX className="w-5 h-5 group-hover:scale-108 transition-all duration-300" />
                 ) : (
-                  <Volume2 className="w-5 h-5 text-white md:text-foreground dark:md:text-white animate-pulse" />
+                  <Volume2 className="w-5 h-5 group-hover:scale-108 transition-all duration-300" />
                 )}
               </div>
             </button>
@@ -294,8 +304,10 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
               <button 
                 onClick={() => setShowMenu(!showMenu)}
                 className={cn(
-                  "w-10 h-10 bg-black/35 hover:bg-black/50 text-white md:bg-muted/70 md:hover:bg-muted md:text-foreground dark:md:bg-white/15 dark:md:hover:bg-white/25 dark:md:text-white backdrop-blur-xs rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer",
-                  showMenu && "ring-2 ring-primary/60"
+                  "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md",
+                  showMenu 
+                    ? "bg-orange-500/20 border border-orange-500/50 text-orange-500 scale-105" 
+                    : "bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500"
                 )}
               >
                 <MoreVertical className="w-5 h-5" />

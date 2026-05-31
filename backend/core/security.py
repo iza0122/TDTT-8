@@ -43,7 +43,7 @@ def get_current_user(
     
     # Xác thực Firebase ID Token chính thức bằng Firebase Admin SDK
     try:
-        decoded_token = auth.verify_id_token(token)
+        decoded_token = auth.verify_id_token(token, clock_skew_seconds=10)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -133,7 +133,7 @@ def get_current_user_optional(
         return None
     token = credentials.credentials
     try:
-        decoded_token = auth.verify_id_token(token)
+        decoded_token = auth.verify_id_token(token, clock_skew_seconds=10)
         uid = decoded_token.get("uid")
         if uid:
             return db.query(User).filter(User.firebase_uid == uid).first()
