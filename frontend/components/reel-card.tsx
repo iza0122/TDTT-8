@@ -52,6 +52,12 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
   }, [reel]);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const hasPlayedRef = useRef(false);
+
+  useEffect(() => {
+    hasPlayedRef.current = false;
+  }, [reel.video]);
+
   // Sync play/pause with isActive and isPlaying states
   useEffect(() => {
     setIsPlaying(isActive);
@@ -85,6 +91,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
         video.play()
           .then(() => {
             console.log(`✅ [ReelCard:Video] Tự động phát thành công: ${reel.video}`);
+            hasPlayedRef.current = true;
           })
           .catch((err) => {
             console.warn("❌ [ReelCard:Video] Trình duyệt chặn tự động phát:", err.message || err);
@@ -109,33 +116,26 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
       video.pause();
       setIsPlaying(false);
     } else {
-      console.log(`▶️ [ReelCard:Video] Người dùng bấm Phát video (Manual Play) đồng bộ: ${reel.video}`);
       video.muted = isMuted;
       
       // Play synchronously inside the click stack to bypass iOS Safari gesture checking
-      const playPromise = video.play();
-      
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log(`✅ [ReelCard:Video] Phát đồng bộ theo cử chỉ người dùng thành công: ${reel.video}`);
-            setIsPlaying(true);
-          })
-          .catch((err) => {
-            console.warn("⚠️ [ReelCard:Video] Phát đồng bộ lỗi, kích hoạt quy trình tự phục hồi bằng load():", err);
-            // Self-healing recovery: load() completely resets the media element and clears taint
-            video.load();
-            video.play()
-              .then(() => {
-                console.log(`🩹 [ReelCard:Video] Tự phục hồi thành công! Video đang phát.`);
-                setIsPlaying(true);
-              })
-              .catch((retryErr) => {
-                console.error("❌ [ReelCard:Video] Quy trình tự phục hồi thất bại hoàn toàn:", retryErr);
-                setIsPlaying(false);
-              });
-          });
+      if (!hasPlayedRef.current) {
+        console.log(`🔄 [ReelCard:Video] Phát lần đầu. Reset đồng bộ (load()) thẻ video để xóa trạng thái bị chặn của Safari: ${reel.video}`);
+        video.load();
+      } else {
+        console.log(`▶️ [ReelCard:Video] Tiếp tục phát từ vị trí cũ: ${reel.video}`);
       }
+
+      video.play()
+        .then(() => {
+          console.log(`✅ [ReelCard:Video] Phát đồng bộ theo cử chỉ người dùng thành công: ${reel.video}`);
+          hasPlayedRef.current = true;
+          setIsPlaying(true);
+        })
+        .catch((err) => {
+          console.error("❌ [ReelCard:Video] Phát video thất bại hoàn toàn:", err);
+          setIsPlaying(false);
+        });
     }
   };
 
