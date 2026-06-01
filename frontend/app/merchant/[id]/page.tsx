@@ -17,8 +17,11 @@ import {
   MessageCircle, 
   Heart, 
   Bookmark, 
-  Search 
+  Search, 
+  Plus, 
+  Minus 
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -31,6 +34,8 @@ import { cn } from "@/lib/utils";
 const mockMerchantData = {
   id: "1",
   name: "Nhà hàng Sen Hồng",
+  lat: 10.775,
+  lng: 106.690,
   slogan: "Hương vị Việt Nam đích thực giữa lòng Sài Gòn.",
   imageUrl: "https://picsum.photos/seed/restaurant-sen-hong/1600/900",
   logoUrl: "https://picsum.photos/seed/sen-hong-logo/150/150",
@@ -117,9 +122,40 @@ const mockMerchantData = {
       description: "Áp dụng cho nhóm từ 4 người trở lên, vui lòng thông báo khi đặt bàn."
     }
   ],
+  fullMenu: [
+    {
+      id: "fm1",
+      name: "Cơm tấm sườn bì chả",
+      price: "70.000đ",
+      imageUrl: "https://picsum.photos/seed/com-tam/400/300",
+      description: "Cơm tấm với sườn nướng thơm lừng, bì, chả trứng hấp dẫn, ăn kèm dưa chua và nước mắm chua ngọt."
+    },
+    {
+      id: "fm2",
+      name: "Bánh xèo miền Tây",
+      price: "85.000đ",
+      imageUrl: "https://picsum.photos/seed/banh-xeo/400/300",
+      description: "Bánh xèo giòn rụm với nhân tôm, thịt, giá đỗ, chấm nước mắm chua ngọt và rau sống."
+    },
+    {
+      id: "fm3",
+      name: "Gà nướng muối ớt",
+      price: "150.000đ",
+      imageUrl: "https://picsum.photos/seed/ga-nuong/400/300",
+      description: "Gà ta nướng muối ớt cay nồng, da giòn thịt ngọt, ăn kèm cơm hoặc bún đều ngon."
+    },
+    {
+        id: "fm4",
+        name: "Lẩu thái chua cay",
+        price: "250.000đ",
+        imageUrl: "https://picsum.photos/seed/lau-thai/400/300",
+        description: "Nồi lẩu thái đậm đà hương vị chua cay, hải sản tươi sống và rau nấm đa dạng."
+    },
+  ],
 };
 
 export default function MerchantPage() {
+  const [isFullMenuOpen, setIsFullMenuOpen] = useState(false);
   const params = useParams();
   const { id } = params as { id: string };
 
@@ -230,32 +266,67 @@ export default function MerchantPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {merchant.menuHighlights.map((item) => (
                   <Card key={item.id} className="p-1.5 bg-white/5 dark:bg-black/15 border border-white/10 dark:border-white/5 rounded-2xl shadow-lg backdrop-blur-sm">
-                    <div className="p-3.5 rounded-[calc(1rem-2px)] bg-card/65 dark:bg-card/45 shadow-inner flex flex-col sm:flex-row gap-4 items-center">
-                      <AspectRatio ratio={1 / 1} className="w-24 h-24 flex-shrink-0 overflow-hidden rounded-xl border border-border/20 shadow-xs">
-                        <Image
-                          src={item.imageUrl}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </AspectRatio>
-                      <div className="flex-1 space-y-1 text-center sm:text-left">
-                        <h3 className="font-extrabold text-sm text-foreground">{item.name}</h3>
-                        <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
-                        <p className="font-bold text-base text-orange-500 mt-2">{item.price}</p>
+                    <div className="p-3.5 rounded-[calc(1rem-2px)] bg-card/65 dark:bg-card/45 shadow-inner flex flex-col justify-between h-full">
+                      <div className="flex items-center gap-4 mb-4">
+                        <AspectRatio ratio={4 / 3} className="w-60 h-auto flex-shrink-0 overflow-hidden rounded-xl border border-border/20 shadow-xs">
+                          <Image
+                            src={item.imageUrl}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </AspectRatio>
+                        <div className="flex-1 space-y-1">
+                          <h3 className="font-extrabold text-base text-foreground">{item.name}</h3>
+                          <p className="font-bold text-lg text-orange-500">{item.price}</p>
+                        </div>
                       </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+                        {item.description}
+                      </p>
                     </div>
                   </Card>
                 ))}
               </div>
-              <div className="text-center mt-12">
-                <Button variant="outline" className="px-6 py-3 rounded-full text-sm font-bold border-orange-500/30 text-orange-500 hover:bg-orange-500 hover:text-white transition-colors active:scale-95 group">
-                  Xem toàn bộ Menu
-                  <span className="ml-2 w-7 h-7 rounded-full bg-orange-500/10 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
-                    <ChevronRight className="w-4 h-4 text-orange-500 group-hover:text-white" />
-                  </span>
-                </Button>
-              </div>
+              <Collapsible open={isFullMenuOpen} onOpenChange={setIsFullMenuOpen} className="w-full">
+                <CollapsibleContent className="CollapsibleContent">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    {merchant.fullMenu.map((item) => (
+                      <Card key={item.id} className="p-1.5 bg-white/5 dark:bg-black/15 border border-white/10 dark:border-white/5 rounded-2xl shadow-lg backdrop-blur-sm">
+                        <div className="p-3.5 rounded-[calc(1rem-2px)] bg-card/65 dark:bg-card/45 shadow-inner flex flex-col justify-between h-full">
+                          <div className="flex items-center gap-4 mb-4">
+                            <AspectRatio ratio={4 / 3} className="w-60 h-auto flex-shrink-0 overflow-hidden rounded-xl border border-border/20 shadow-xs">
+                              <Image
+                                src={item.imageUrl}
+                                alt={item.name}
+                                fill
+                                className="object-cover"
+                              />
+                            </AspectRatio>
+                            <div className="flex-1 space-y-1">
+                              <h3 className="font-extrabold text-base text-foreground">{item.name}</h3>
+                              <p className="font-bold text-lg text-orange-500">{item.price}</p>
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+                            {item.description}
+                          </p>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+                <CollapsibleTrigger asChild>
+                  <div className="text-center mt-12">
+                    <Button variant="outline" className="px-6 py-3 rounded-full text-sm font-bold border-orange-500/30 text-orange-500 hover:bg-orange-500 hover:text-white transition-colors active:scale-95 group">
+                      {isFullMenuOpen ? "Thu gọn Menu" : "Xem toàn bộ Menu"}
+                      <span className="ml-2 w-7 h-7 rounded-full bg-orange-500/10 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+                        {isFullMenuOpen ? <Minus className="w-4 h-4 text-orange-500 group-hover:text-white" /> : <Plus className="w-4 h-4 text-orange-500 group-hover:text-white" />}
+                      </span>
+                    </Button>
+                  </div>
+                </CollapsibleTrigger>
+              </Collapsible>
             </section>
 
             {/* Gallery / Visuals Section */}
@@ -340,7 +411,12 @@ export default function MerchantPage() {
                     <h3 className="font-bold text-sm text-muted-foreground/80 mb-2 flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-orange-500" /> Địa chỉ
                     </h3>
-                    <p className="text-base text-foreground pl-6">{merchant.address}</p>
+                    <Link 
+                      href={`/map?lat=${merchant.lat}&lng=${merchant.lng}&id=${merchant.id}`}
+                      className="text-base text-foreground pl-6 hover:text-orange-500 hover:underline transition-colors block"
+                    >
+                      {merchant.address}
+                    </Link>
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-muted-foreground/80 mb-2 flex items-center gap-2">
@@ -361,9 +437,13 @@ export default function MerchantPage() {
                     <p className="text-base text-foreground pl-6">{merchant.email}</p>
                   </div>
                   {/* Placeholder for MapView component */}
-                  <div className="w-full h-64 bg-secondary/50 rounded-lg flex items-center justify-center text-muted-foreground/60 text-sm">
-                    Bản đồ sẽ được hiển thị ở đây
-                  </div>
+                  <Link 
+                    href={`/map?lat=${merchant.lat}&lng=${merchant.lng}&id=${merchant.id}`}
+                    className="w-full h-64 bg-secondary/50 rounded-lg flex flex-col items-center justify-center text-muted-foreground/60 text-sm hover:bg-secondary/70 transition-colors group"
+                  >
+                    <MapPin className="w-8 h-8 text-orange-500 mb-2 group-hover:scale-110 transition-transform" />
+                    <span className="font-bold text-foreground group-hover:text-orange-500">Hiện trên bản đồ</span>
+                  </Link>
                 </div>
               </div>
             </section>
@@ -382,7 +462,7 @@ export default function MerchantPage() {
                         <h3 className="font-extrabold text-sm text-primary flex items-center gap-2">
                           <Tag className="w-4 h-4" /> {promo.title}
                         </h3>
-                        <p className="text-xs text-primary-foreground/80 leading-relaxed">{promo.description}</p>
+                        <p className="text-sm text-muted-foreground leading-relaxed mt-2">{promo.description}</p>
                       </div>
                     </Card>
                   ))}

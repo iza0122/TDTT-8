@@ -329,16 +329,18 @@ export default function MapPage() {
                   </div>
                 </Button>
                 
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className={cn(
-                    "flex-1 text-xs font-bold rounded-full border border-border/80 bg-background/40 hover:bg-muted active:scale-95 hover:scale-101 transition-all duration-300",
-                    "py-2 flex items-center justify-center cursor-pointer"
-                  )}
-                >
-                  Xem chi tiết
-                </Button>
+                <Link href={`/merchant/${selectedRestaurant.id}`} passHref>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className={cn(
+                      "flex-1 text-xs font-bold rounded-full border border-border/80 bg-background/40 hover:bg-muted active:scale-95 hover:scale-101 transition-all duration-300",
+                      "py-2 flex items-center justify-center cursor-pointer"
+                    )}
+                  >
+                    Xem chi tiết
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
