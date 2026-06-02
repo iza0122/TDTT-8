@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
 
-  const publicPaths = ["/login", "/register", "/forgot-password", "/terms", "/privacy"];
+  const publicPaths = ["/", "/reels", "/map", "/merchant", "/login", "/register", "/forgot-password", "/terms", "/privacy"];
   const isPublicPath = publicPaths.includes(pathname || "");
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { CaptionText } from "@/components/caption-text";
+import { LoginRequiredDialog } from "@/components/login-required-dialog";
 
 interface FoodPostProps {
   post: {
@@ -44,9 +45,18 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
   const { token, user } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(post.isSaved);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const isLikePending = useRef(false);
 
   const canDelete = user && (user.id === post.reviewerId || user.role === "admin");
+
+  const handleAuthenticatedAction = useCallback((action: () => void) => {
+    if (!token) {
+      setShowLoginDialog(true);
+      return;
+    }
+    action();
+  }, [token]);
 
   const handleDeletePost = async () => {
     if (!token) return;
@@ -72,38 +82,62 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
   };
 
   const handleLike = async () => {
-    if (!token || isLikePending.current) return;
-    try {
-      isLikePending.current = true;
-      const nextLiked = !post.isLiked;
-      const nextLikes = nextLiked ? post.likes + 1 : post.likes - 1;
-      
-      // Update parent state instantly for snappy UX!
-      if (onLikeToggle) {
-        onLikeToggle(nextLiked, nextLikes);
-      }
-
-      const res = await fetch(`/api/interact/videos/${post.id}/like`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
+    if (isLikePending.current) return;
+    handleAuthenticatedAction(async () => {
+      try {
+        isLikePending.current = true;
+        const nextLiked = !post.isLiked;
+        const nextLikes = nextLiked ? post.likes + 1 : post.likes - 1;
+        
+        // Update parent state instantly for snappy UX!
         if (onLikeToggle) {
-          onLikeToggle(data.liked, data.likes_count);
+          onLikeToggle(nextLiked, nextLikes);
         }
+
+        const res = await fetch(`/api/interact/videos/${post.id}/like`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (onLikeToggle) {
+            onLikeToggle(data.liked, data.likes_count);
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi khi thả tim bài viết:", err);
+      } finally {
+        isLikePending.current = false;
       }
-    } catch (err) {
-      console.error("Lỗi khi thả tim bài viết:", err);
-    } finally {
-      isLikePending.current = false;
-    }
+    });
   };
 
   const handleSave = () => {
-    setIsSaved(!isSaved);
+    handleAuthenticatedAction(async () => {
+      // Assuming there\'s an API for saving posts
+      const nextSaved = !isSaved;
+      setIsSaved(nextSaved);
+
+      try {
+        const res = await fetch(`/api/interact/videos/${post.id}/save`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (!res.ok) {
+          // Revert UI state if API call fails
+          setIsSaved(!nextSaved);
+          const errData = await res.json();
+          console.error("Lỗi khi lưu bài viết:", errData);
+        }
+      } catch (err) {
+        setIsSaved(!nextSaved);
+        console.error("Lỗi khi lưu bài viết:", err);
+      }
+    });
   };
 
 
@@ -114,7 +148,7 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
     return num.toString();
   };
 
-  return (
+  return (<>
     <div className="rounded-[2.25rem] bg-white/40 dark:bg-neutral-900/10 border border-neutral-200/50 dark:border-neutral-800/40 p-2 shadow-xl shadow-neutral-200/5 dark:shadow-black/20 backdrop-blur-xl mb-6 transition-all duration-500 hover:shadow-2xl hover:border-orange-500/20 group/post">
       <article className="rounded-[calc(2.25rem-8px)] bg-card border border-neutral-100/70 dark:border-neutral-800/60 overflow-hidden transition-all duration-500 shadow-inner">
         {/* Header */}
@@ -260,5 +294,6 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
         </div>
       </article>
     </div>
-  );
+    <LoginRequiredDialog isOpen={showLoginDialog} onClose={() => setShowLoginDialog(false)} />
+  </>);
 }

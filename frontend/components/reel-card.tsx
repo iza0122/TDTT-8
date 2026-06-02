@@ -1,12 +1,13 @@
 "use client";
  
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { Heart, MessageCircle, Share2, Music2, Play, Pause, MapPin, MoreVertical, Volume2, VolumeX, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { LoginRequiredDialog } from "@/components/login-required-dialog";
 
 interface ReelCardProps {
   reel: {
@@ -45,12 +46,21 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
   const [isLiked, setIsLiked] = useState(reel.isLiked || false);
   const [likes, setLikes] = useState(reel.likes);
   const [isPlaying, setIsPlaying] = useState(isActive);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   useEffect(() => {
     setIsLiked(reel.isLiked || false);
     setLikes(reel.likes);
   }, [reel]);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleAuthenticatedAction = useCallback((action: () => void) => {
+    if (!token) {
+      setShowLoginDialog(true);
+      return;
+    }
+    action();
+  }, [token]);
 
   // Sync play/pause with isActive and isPlaying states
   useEffect(() => {
@@ -74,61 +84,63 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
     onMuteToggle();
   };
 
-  const handleLike = async () => {
-    if (!token) return;
-    try {
-      const nextLiked = !isLiked;
-      const nextLikes = nextLiked ? likes + 1 : likes - 1;
-      
-      // Update local state instantly for snappy UX
-      setIsLiked(nextLiked);
-      setLikes(nextLikes);
-      if (onLikeToggle) {
-        onLikeToggle(nextLiked, nextLikes);
-      }
-
-      const res = await fetch(`/api/interact/videos/${reel.id}/like`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setIsLiked(data.liked);
-        setLikes(data.likes_count);
+  const handleLike = () => {
+    handleAuthenticatedAction(async () => {
+      try {
+        const nextLiked = !isLiked;
+        const nextLikes = nextLiked ? likes + 1 : likes - 1;
+        
+        // Update local state instantly for snappy UX
+        setIsLiked(nextLiked);
+        setLikes(nextLikes);
         if (onLikeToggle) {
-          onLikeToggle(data.liked, data.likes_count);
+          onLikeToggle(nextLiked, nextLikes);
         }
+
+        const res = await fetch(`/api/interact/videos/${reel.id}/like`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setIsLiked(data.liked);
+          setLikes(data.likes_count);
+          if (onLikeToggle) {
+            onLikeToggle(data.liked, data.likes_count);
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi khi thả tim Reels:", err);
       }
-    } catch (err) {
-      console.error("Lỗi khi thả tim Reels:", err);
-    }
+    });
   };
 
   const canDelete = user && (user.id === reel.reviewerId || user.role === "admin");
 
-  const handleDeleteReel = async () => {
-    if (!token) return;
-    if (!confirm("Bạn có chắc chắn muốn xóa reel này không?")) return;
-    try {
-      const response = await fetch(`/api/content/videos/${reel.id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
+  const handleDeleteReel = () => {
+    handleAuthenticatedAction(async () => {
+      if (!confirm("Bạn có chắc chắn muốn xóa reel này không?")) return;
+      try {
+        const response = await fetch(`/api/content/videos/${reel.id}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          if (onDelete) {
+            onDelete();
+          }
+        } else {
+          const errData = await response.json();
+          alert(errData.detail || "Không thể xóa reel.");
         }
-      });
-      if (response.ok) {
-        if (onDelete) {
-          onDelete();
-        }
-      } else {
-        const errData = await response.json();
-        alert(errData.detail || "Không thể xóa reel.");
+      } catch (err) {
+        console.error("Lỗi khi xóa reel:", err);
       }
-    } catch (err) {
-      console.error("Lỗi khi xóa reel:", err);
-    }
+    });
   };
 
   const formatNumber = (num: number) => {
