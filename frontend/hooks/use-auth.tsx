@@ -40,19 +40,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Load state from localStorage on mount
     try {
-      const storedToken = localStorage.getItem("token");
-      const storedUser = localStorage.getItem("user");
-      
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+      const isMockMerchantMode = process.env.NEXT_PUBLIC_MOCK_MERCHANT === "true";
+
+      if (isMockMerchantMode) {
+        // Mock merchant user for development
+        const mockMerchantUser: User = {
+          id: 999,
+          firebase_uid: "mock-merchant-uid",
+          email: "merchant@example.com",
+          full_name: "Mock Merchant",
+          avatar_url: "/placeholder-user.jpg",
+          role: "merchant",
+        };
+        setToken("mock-token-merchant");
+        setUser(mockMerchantUser);
+        localStorage.setItem("token", "mock-token-merchant");
+        localStorage.setItem("user", JSON.stringify(mockMerchantUser));
+        console.log("Mock merchant user logged in for testing.");
+      } else {
+        const storedToken = localStorage.getItem("token");
+        const storedUser = localStorage.getItem("user");
+        
+        if (storedToken && storedUser) {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        }
       }
     } catch (error) {
       console.error("Error reading auth state from localStorage:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pathname]);
 
   // Overriding window.fetch globally to intercept API requests and refresh expired tokens
   useEffect(() => {
