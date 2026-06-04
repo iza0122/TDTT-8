@@ -56,6 +56,65 @@ export default function ReelsPage() {
     localStorage.setItem("reels-muted", String(newMuted));
   };
 
+  const handleFollowToggleActiveReel = async () => {
+    if (!token) {
+      alert("Vui lòng đăng nhập để thực hiện chức năng này.");
+      router.push("/login");
+      return;
+    }
+    if (!activeReel) return;
+
+    const reviewerId = activeReel.reviewerId;
+    const isCurrentlyFollowing = activeReel.user.is_following;
+    const endpoint = `/api/interact/users/${reviewerId}/${isCurrentlyFollowing ? "unfollow" : "follow"}`;
+    const method = isCurrentlyFollowing ? "DELETE" : "POST";
+
+    try {
+      // Optimistic Update
+      setReelsList(prev => prev.map(r => {
+        if (r.reviewerId === reviewerId) {
+          return {
+            ...r,
+            user: { ...r.user, is_following: !isCurrentlyFollowing }
+          };
+        }
+        return r;
+      }));
+
+      const res = await fetch(endpoint, {
+        method: method,
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReelsList(prev => prev.map(r => {
+          if (r.reviewerId === reviewerId) {
+            return {
+              ...r,
+              user: { ...r.user, is_following: data.is_following }
+            };
+          }
+          return r;
+        }));
+      } else {
+        // Rollback
+        setReelsList(prev => prev.map(r => {
+          if (r.reviewerId === reviewerId) {
+            return {
+              ...r,
+              user: { ...r.user, is_following: isCurrentlyFollowing }
+            };
+          }
+          return r;
+        }));
+      }
+    } catch (err) {
+      console.error("Lỗi khi theo dõi:", err);
+    }
+  };
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -72,7 +131,8 @@ export default function ReelsPage() {
             user: {
               name: item.user?.full_name || "Người dùng",
               username: item.user?.username || `user_${item.reviewer_id}`,
-              avatar: item.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+              avatar: item.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+              is_following: item.user?.is_following || false
             },
             restaurant: {
               name: item.restaurant?.name || "Quán ăn ẩm thực",
@@ -83,7 +143,13 @@ export default function ReelsPage() {
             caption: item.description || item.title,
             likes: item.likes_count,
             comments: item.comments_count || 0,
-            shares: 0,
+            shares: item.shares_count || 0,
+            reupFromUser: item.reup_from_user ? {
+              id: item.reup_from_user.id,
+              name: item.reup_from_user.full_name || "Người dùng",
+              username: item.reup_from_user.username || `user_${item.reup_from_user.id}`,
+              avatar: item.reup_from_user.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+            } : null,
             music: "Âm thanh gốc - " + (item.user?.full_name || "Blogger"),
             isLiked: item.is_liked || false
           }));
@@ -481,6 +547,14 @@ export default function ReelsPage() {
                     return r;
                   }));
                 }}
+                onShareUpdate={(sharesCount) => {
+                  setReelsList(prev => prev.map(r => {
+                    if (r.id === reel.id) {
+                      return { ...r, shares: sharesCount };
+                    }
+                    return r;
+                  }));
+                }}
                 onDelete={() => {
                   setReelsList(prev => {
                     const filtered = prev.filter(r => r.id !== reel.id);
@@ -508,18 +582,33 @@ export default function ReelsPage() {
             {/* Header */}
             <div className="p-4 border-b border-border/40 flex items-center justify-between flex-shrink-0 bg-secondary/20 dark:bg-neutral-800/10">
               <div className="flex items-center gap-3">
-                <Avatar className="w-9 h-9 ring-2 ring-orange-500/20">
-                  <AvatarImage src={activeReel.user.avatar} alt={activeReel.user.name} />
-                  <AvatarFallback>{activeReel.user.name[0]}</AvatarFallback>
-                </Avatar>
+                <Link href={`/profile/${activeReel.reviewerId}`}>
+                  <Avatar className="w-9 h-9 ring-2 ring-orange-500/20 cursor-pointer">
+                    <AvatarImage src={activeReel.user.avatar} alt={activeReel.user.name} />
+                    <AvatarFallback>{activeReel.user.name[0]}</AvatarFallback>
+                  </Avatar>
+                </Link>
                 <div className="min-w-0">
-                  <h3 className="font-extrabold text-sm text-foreground truncate">@{activeReel.user.username}</h3>
+                  <Link href={`/profile/${activeReel.reviewerId}`} className="hover:underline cursor-pointer">
+                    <h3 className="font-extrabold text-sm text-foreground truncate">@{activeReel.user.username}</h3>
+                  </Link>
                   <p className="text-[10px] text-muted-foreground/60 font-semibold truncate">{activeReel.user.name}</p>
                 </div>
               </div>
-              <Button size="sm" className="h-7 text-xs font-extrabold bg-orange-500 hover:bg-orange-600 px-4 rounded-full text-white hover:scale-105 active:scale-95 transition-all duration-300">
-                Theo dõi
-              </Button>
+              {user?.id !== activeReel.reviewerId && (
+                <Button 
+                  size="sm" 
+                  onClick={handleFollowToggleActiveReel}
+                  className={cn(
+                    "h-7 text-xs font-extrabold px-4 rounded-full text-white hover:scale-105 active:scale-95 transition-all duration-300",
+                    activeReel.user.is_following 
+                      ? "bg-secondary text-foreground hover:bg-secondary/80 border border-border" 
+                      : "bg-orange-500 hover:bg-orange-600 text-white"
+                  )}
+                >
+                  {activeReel.user.is_following ? "Đang theo dõi" : "Theo dõi"}
+                </Button>
+              )}
             </div>
 
             {/* Reel Details & Restaurant Info */}

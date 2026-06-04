@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from backend.core.config import settings
-from backend.core.all_models import Video, Merchant, Campaign
+from backend.core.all_models import Video, Merchant, Campaign, HiddenVideo, UserFollow
 from backend.modules.content.schemas import VideoCreate
 from backend.core.database import SessionLocal, Base
 
@@ -120,13 +120,63 @@ def create_video(db: Session, video_in: VideoCreate, reviewer_id: int) -> Video:
             detail=f"Lỗi hệ thống khi lưu trữ thông tin video: {str(e)}"
         )
 
+def reup_video(db: Session, video_id: int, reviewer_id: int) -> Video:
+    """
+    Chia sẻ lại (Reup) một bài viết/video của người khác lên bảng tin của mình.
+    """
+    # 1. Tìm video gốc
+    original_video = db.query(Video).filter(Video.id == video_id).first()
+    if not original_video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bài viết/Video gốc không tồn tại."
+        )
+
+    # 2. Tạo một bản ghi video mới sao chép thông tin
+    db_video = Video(
+        title=original_video.title,
+        video_url=original_video.video_url,
+        thumbnail_url=original_video.thumbnail_url,
+        description=original_video.description,
+        reviewer_id=reviewer_id,
+        tagged_merchant_id=original_video.tagged_merchant_id,
+        post_type=original_video.post_type,
+        reup_from_id=original_video.id,
+        status="approved"  # Tự động approve cho bài reup
+    )
+
+    try:
+        db.add(db_video)
+        
+        # Tăng luôn lượt chia sẻ (share_post logic) cho video gốc của chủ sở hữu nếu user chưa share bài này bao giờ
+        from backend.core.all_models import UserShare
+        existing_share = db.query(UserShare).filter(
+            UserShare.user_id == reviewer_id,
+            UserShare.video_id == video_id
+        ).first()
+        
+        if not existing_share:
+            new_share = UserShare(user_id=reviewer_id, video_id=video_id)
+            db.add(new_share)
+            original_video.shares_count = (original_video.shares_count or 0) + 1
+        
+        db.commit()
+        db.refresh(db_video)
+        return db_video
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi hệ thống khi reup bài viết: {str(e)}"
+        )
+
 def get_videos(db: Session, skip: int = 0, limit: int = 10) -> list[Video]:
     """
     Lấy danh sách video (cho Feed) có phân trang (cũ).
     """
     return db.query(Video).offset(skip).limit(limit).all()
 
-def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, post_type: Optional[str] = None, current_user_id: Optional[int] = None) -> dict:
+def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, post_type: Optional[str] = None, current_user_id: Optional[int] = None, following_only: bool = False) -> dict:
     """
     Lấy danh sách video (cho Feed) có phân trang bằng Cursor
     và tự động trộn quảng cáo (Campaign) theo tỷ lệ 4:1.
@@ -134,10 +184,35 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
     # 1. Giải mã cursor
     cursor_data = decode_cursor(cursor)
     
+    # Lấy danh sách ID video đã thích và người dùng đã follow của user hiện tại
+    liked_video_ids = set()
+    followed_user_ids = set()
+    if current_user_id:
+        from backend.core.all_models import Like
+        likes = db.query(Like.video_id).filter(Like.user_id == current_user_id).all()
+        liked_video_ids = {like[0] for like in likes}
+        
+        follows = db.query(UserFollow.following_id).filter(UserFollow.follower_id == current_user_id).all()
+        followed_user_ids = {f[0] for f in follows}
+    
     # 2. Truy vấn video thường (organic)
     query = db.query(Video)
     if post_type:
         query = query.filter(Video.post_type == post_type)
+        
+    # Lọc video bị ẩn bởi user hiện tại
+    if current_user_id:
+        hidden_video_ids = db.query(HiddenVideo.video_id).filter(HiddenVideo.user_id == current_user_id).all()
+        if hidden_video_ids:
+            query = query.filter(~Video.id.in_([hv[0] for hv in hidden_video_ids]))
+            
+    # Lọc chỉ lấy các bài viết của những người đang follow
+    if following_only and current_user_id:
+        if followed_user_ids:
+            query = query.filter(Video.reviewer_id.in_(list(followed_user_ids)))
+        else:
+            # Chưa theo dõi ai -> Trả về danh sách trống
+            query = query.filter(1 == 0)
         
     if cursor_data:
         cursor_time, cursor_id = cursor_data
@@ -167,15 +242,10 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
     campaigns_to_track = []
     ad_index = 0
     
-    # Lấy danh sách ID video đã thích của user hiện tại
-    liked_video_ids = set()
-    if current_user_id:
-        from backend.core.all_models import Like
-        likes = db.query(Like.video_id).filter(Like.user_id == current_user_id).all()
-        liked_video_ids = {like[0] for like in likes}
-    
     for i, video in enumerate(organic_videos):
         video.is_liked = video.id in liked_video_ids
+        if video.reviewer:
+            video.reviewer.is_following = video.reviewer_id in followed_user_ids
         mixed_items.append(video)
         
         # Cứ sau 4 video thường, nếu có QC hoạt động thì chèn vào

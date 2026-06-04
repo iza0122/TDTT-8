@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from backend.core.database import get_db
-from backend.core.security import get_current_user
+from backend.core.security import get_current_user, get_current_user_optional
 from backend.core.all_models import User
 from backend.modules.search_interact import schemas, services
 
@@ -113,4 +113,73 @@ def delete_comment_endpoint(
     current_user: User = Depends(get_current_user)
 ):
     return services.delete_comment(db=db, comment_id=comment_id, current_user=current_user)
+
+@router.post(
+    "/users/{user_id}/follow",
+    response_model=schemas.FollowToggleResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Theo dõi người dùng",
+    description="Theo dõi người dùng khác bằng ID. Yêu cầu đăng nhập."
+)
+def follow_user_endpoint(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return services.follow_user(db=db, follower_id=current_user.id, following_id=user_id)
+
+@router.delete(
+    "/users/{user_id}/unfollow",
+    response_model=schemas.FollowToggleResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Hủy theo dõi người dùng",
+    description="Hủy theo dõi người dùng khác bằng ID. Yêu cầu đăng nhập."
+)
+def unfollow_user_endpoint(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return services.unfollow_user(db=db, follower_id=current_user.id, following_id=user_id)
+
+@router.post(
+    "/videos/{video_id}/hide",
+    status_code=status.HTTP_200_OK,
+    summary="Ẩn bài viết",
+    description="Ẩn một bài viết/video để nó không xuất hiện trên feed của người dùng hiện tại nữa. Yêu cầu đăng nhập."
+)
+def hide_post_endpoint(
+    video_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return services.hide_post(db=db, user_id=current_user.id, video_id=video_id)
+
+@router.delete(
+    "/videos/{video_id}/unhide",
+    status_code=status.HTTP_200_OK,
+    summary="Hủy ẩn bài viết",
+    description="Hủy ẩn bài viết để nó xuất hiện lại trên feed. Yêu cầu đăng nhập."
+)
+def unhide_post_endpoint(
+    video_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return services.unhide_post(db=db, user_id=current_user.id, video_id=video_id)
+
+@router.post(
+    "/videos/{video_id}/share",
+    response_model=schemas.ShareResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Chia sẻ bài viết",
+    description="Tăng lượt đếm chia sẻ cho bài viết/video."
+)
+def share_post_endpoint(
+    video_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    user_id = current_user.id if current_user else None
+    return services.share_post(db=db, video_id=video_id, user_id=user_id)
 

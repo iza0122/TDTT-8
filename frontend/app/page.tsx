@@ -33,7 +33,8 @@ import {
   MessageCircle,
   Share2,
   MoreHorizontal,
-  Trash2
+  Trash2,
+  UserCheck
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -65,10 +66,15 @@ export default function HomePage() {
   const [showModalMenu, setShowModalMenu] = useState(false);
   const pendingLikes = useRef<Record<string, boolean>>({});
 
+  const searchParams = useSearchParams();
+  const feedType = searchParams?.get("feed") === "following" ? "following" : "all";
+
   useEffect(() => {
     const fetchPosts = async () => {
+      setIsLoading(true);
       try {
-        const response = await fetch("/api/content/videos?post_type=image", {
+        const url = `/api/content/videos?post_type=image${feedType === "following" ? "&following_only=true" : ""}`;
+        const response = await fetch(url, {
           headers: token ? { "Authorization": `Bearer ${token}` } : {}
         });
         if (response.ok) {
@@ -91,6 +97,13 @@ export default function HomePage() {
             caption: item.description || item.title,
             likes: item.likes_count,
             comments: item.comments_count || 0,
+            shares: item.shares_count || 0,
+            reupFromUser: item.reup_from_user ? {
+              id: item.reup_from_user.id,
+              name: item.reup_from_user.full_name || "Người dùng",
+              username: item.reup_from_user.username || `user_${item.reup_from_user.id}`,
+              avatar: item.reup_from_user.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+            } : null,
             saves: Math.floor(Math.random() * 12) + 3,
             createdAt: "Vừa xong",
             isLiked: item.is_liked || false,
@@ -105,6 +118,10 @@ export default function HomePage() {
       }
     };
 
+    fetchPosts();
+  }, [token, feedType]);
+
+  useEffect(() => {
     const fetchSuggestions = async () => {
       try {
         const response = await fetch("/api/interact/search?lat=10.775&lng=106.690&radius=15.0&limit=5");
@@ -125,9 +142,8 @@ export default function HomePage() {
       }
     };
 
-    fetchPosts();
     fetchSuggestions();
-  }, [token]);
+  }, []);
 
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [activeComments, setActiveComments] = useState<Comment[]>([]);
@@ -136,7 +152,6 @@ export default function HomePage() {
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const [modalImageAspect, setModalImageAspect] = useState<number | null>(null);
 
-  const searchParams = useSearchParams();
   useEffect(() => {
     const postId = searchParams.get("post_id");
     if (postId) {
@@ -287,9 +302,29 @@ export default function HomePage() {
 
             {/* Navigations Link List (Spring Kinetics) */}
             <nav className="space-y-1 px-2">
-              <Link href="/" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-bold text-orange-500 bg-orange-500/10 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98]">
-                <Home className="w-5 h-5" />
+              <Link 
+                href="/" 
+                className={cn(
+                  "flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98]",
+                  feedType === "all" 
+                    ? "font-bold text-orange-500 bg-orange-500/10" 
+                    : "font-semibold text-foreground hover:bg-secondary/60 hover:text-orange-500 group"
+                )}
+              >
+                <Home className={cn("w-5 h-5", feedType === "all" ? "text-orange-500" : "text-muted-foreground group-hover:text-orange-500 transition-colors duration-300")} />
                 <span>Trang chủ</span>
+              </Link>
+              <Link 
+                href="/?feed=following" 
+                className={cn(
+                  "flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98]",
+                  feedType === "following" 
+                    ? "font-bold text-orange-500 bg-orange-500/10" 
+                    : "font-semibold text-foreground hover:bg-secondary/60 hover:text-orange-500 group"
+                )}
+              >
+                <UserCheck className={cn("w-5 h-5", feedType === "following" ? "text-orange-500" : "text-muted-foreground group-hover:text-orange-500 transition-colors duration-300")} />
+                <span>Đã follow</span>
               </Link>
               <Link href="/reels" className="flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold text-foreground hover:bg-secondary/60 hover:text-orange-500 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.02] active:scale-[0.98] group">
                 <Play className="w-5 h-5 text-muted-foreground group-hover:text-orange-500 transition-colors duration-300" />
@@ -322,7 +357,7 @@ export default function HomePage() {
             <div className="flex items-center justify-center p-3 rounded-2xl bg-secondary/35 dark:bg-card/50 border border-border/40 shadow-inner">
               <ThemeToggle />
             </div>
-            <Link href="/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+            <Link href="/settings" className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
               <Settings className="w-4 h-4" />
               <span>Cài đặt tài khoản</span>
             </Link>
@@ -424,6 +459,14 @@ export default function HomePage() {
                       return p;
                     }));
                   }}
+                  onShareUpdate={(sharesCount) => {
+                    setPostsList(prev => prev.map(p => {
+                      if (p.id === post.id) {
+                        return { ...p, shares: sharesCount };
+                      }
+                      return p;
+                    }));
+                  }}
                   onDelete={() => {
                     setPostsList(prev => prev.filter(p => p.id !== post.id));
                   }}
@@ -518,7 +561,7 @@ export default function HomePage() {
             <div className="space-y-3.5">
               {postsList.slice(0, 3).map((post) => (
                 <div key={post.id} className="flex items-center justify-between gap-3 p-1 rounded-xl">
-                  <Link href="/profile" className="flex items-center gap-2.5 min-w-0 group">
+                  <Link href={post.reviewerId ? `/profile/${post.reviewerId}` : "/profile"} className="flex items-center gap-2.5 min-w-0 group">
                     <Avatar className="w-8 h-8 ring-2 ring-primary/10 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-105">
                       <AvatarImage src={post.user.avatar} alt={post.user.name} />
                       <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs">{post.user.name[0]}</AvatarFallback>

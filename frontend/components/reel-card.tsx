@@ -2,7 +2,8 @@
  
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Heart, MessageCircle, Share2, Music2, Play, Pause, MapPin, MoreVertical, Volume2, VolumeX, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Share2, Music2, Play, Pause, MapPin, MoreVertical, Volume2, VolumeX, Trash2, EyeOff, Copy, Repeat } from "lucide-react";
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ interface ReelCardProps {
       name: string;
       username: string;
       avatar: string;
+      is_following?: boolean;
     };
     restaurant: {
       name: string;
@@ -29,6 +31,12 @@ interface ReelCardProps {
     shares: number;
     music: string;
     isLiked?: boolean;
+    reupFromUser?: {
+      id: number;
+      name: string;
+      username: string;
+      avatar: string;
+    } | null;
   };
   isActive: boolean;
   onCommentClick?: () => void;
@@ -36,19 +44,25 @@ interface ReelCardProps {
   isMuted: boolean;
   onMuteToggle: () => void;
   onLikeToggle?: (isLiked: boolean, likesCount: number) => void;
+  onShareUpdate?: (sharesCount: number) => void;
   onDelete?: () => void;
 }
 
-export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = false, isMuted, onMuteToggle, onLikeToggle, onDelete }: ReelCardProps) {
+export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = false, isMuted, onMuteToggle, onLikeToggle, onShareUpdate, onDelete }: ReelCardProps) {
   const { token, user } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
   const [isLiked, setIsLiked] = useState(reel.isLiked || false);
   const [likes, setLikes] = useState(reel.likes);
   const [isPlaying, setIsPlaying] = useState(isActive);
+  const [isFollowing, setIsFollowing] = useState(reel.user.is_following || false);
+  const [shares, setShares] = useState(reel.shares || 0);
 
   useEffect(() => {
     setIsLiked(reel.isLiked || false);
     setLikes(reel.likes);
+    setIsFollowing(reel.user.is_following || false);
+    setShares(reel.shares || 0);
   }, [reel]);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -107,6 +121,130 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
   };
 
   const canDelete = user && (user.id === reel.reviewerId || user.role === "admin");
+  const isMe = user && user.id === reel.reviewerId;
+
+  const handleFollow = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!token) {
+      alert("Vui lòng đăng nhập để theo dõi reviewer này.");
+      return;
+    }
+    if (!reel.reviewerId || isMe) return;
+
+    try {
+      const endpoint = `/api/interact/users/${reel.reviewerId}/follow`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        setIsFollowing(true);
+      }
+    } catch (err) {
+      console.error("Lỗi khi theo dõi:", err);
+    }
+  };
+
+  const handleCopyLinkShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowShareMenu(false);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`/api/interact/videos/${reel.id}/share`, {
+        method: "POST",
+        headers
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setShares(data.shares_count);
+        if (onShareUpdate) {
+          onShareUpdate(data.shares_count);
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        const shareLink = `${window.location.origin}/reels?id=${reel.id}`;
+        await navigator.clipboard.writeText(shareLink);
+        alert("Đã sao chép liên kết chia sẻ! 🔗");
+      }
+    } catch (err) {
+      console.error("Lỗi khi sao chép liên kết chia sẻ:", err);
+    }
+  };
+
+  const handleReupPost = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowShareMenu(false);
+    if (!token) {
+      alert("Vui lòng đăng nhập để chia sẻ lại video lên bảng tin.");
+      return;
+    }
+
+    if (!confirm("Bạn có chắc muốn chia sẻ lại video này lên bảng tin của mình không?")) return;
+
+    try {
+      const res = await fetch(`/api/content/videos/${reel.id}/reup`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        alert("Đã chia sẻ lại video lên bảng tin của bạn! 🔁");
+        
+        // Trigger share count update in DB and locally
+        const shareRes = await fetch(`/api/interact/videos/${reel.id}/share`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (shareRes.ok) {
+          const shareData = await shareRes.json();
+          setShares(shareData.shares_count);
+          if (onShareUpdate) {
+            onShareUpdate(shareData.shares_count);
+          }
+        }
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Không thể chia sẻ lại video.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi chia sẻ lại:", err);
+    }
+  };
+
+  const handleHidePost = async () => {
+    if (!token) {
+      alert("Vui lòng đăng nhập để ẩn bài viết.");
+      return;
+    }
+    if (!confirm("Bạn có chắc chắn muốn ẩn bài viết này không? Nó sẽ không hiển thị trên bảng tin của bạn nữa.")) return;
+
+    try {
+      const response = await fetch(`/api/interact/videos/${reel.id}/hide`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        alert("Đã ẩn bài viết.");
+        if (onDelete) {
+          onDelete(); // Trực tiếp xóa khỏi danh sách local feed
+        }
+      } else {
+        const errData = await response.json();
+        alert(errData.detail || "Không thể ẩn bài viết.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi ẩn bài viết:", err);
+    }
+  };
 
   const handleDeleteReel = async () => {
     if (!token) return;
@@ -215,8 +353,13 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
             {/* Bottom Info */}
             <div className="absolute bottom-2 left-0 right-14 p-5 z-20 space-y-2">
               {/* User Info */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-white font-extrabold text-sm drop-shadow-md">@{reel.user.username}</span>
+                {reel.reupFromUser && (
+                  <span className="text-orange-400 font-bold text-[10px] bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-1 shadow-xs border border-white/5">
+                    🔁 @{reel.reupFromUser.username}
+                  </span>
+                )}
               </div>
 
               {/* Caption */}
@@ -237,13 +380,20 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
         <div className="absolute right-3.5 bottom-8 md:static flex flex-col items-center gap-5.5 z-20 select-none">
           {/* User Avatar */}
           <div className="relative group">
-            <Avatar className="w-11 h-11 ring-2 ring-white/30 md:ring-orange-500/30 dark:md:ring-white/20 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-105">
-              <AvatarImage src={reel.user.avatar} alt={reel.user.name} />
-              <AvatarFallback>{reel.user.name[0]}</AvatarFallback>
-            </Avatar>
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4.5 h-4.5 bg-orange-500 hover:scale-110 active:scale-90 transition-all rounded-full flex items-center justify-center shadow-md cursor-pointer border border-white/20">
-              <span className="text-white text-xs font-bold">+</span>
-            </div>
+            <Link href={reel.reviewerId ? `/profile/${reel.reviewerId}` : "/profile"}>
+              <Avatar className="w-11 h-11 ring-2 ring-white/30 md:ring-orange-500/30 dark:md:ring-white/20 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-105 cursor-pointer">
+                <AvatarImage src={reel.user.avatar} alt={reel.user.name} />
+                <AvatarFallback>{reel.user.name[0]}</AvatarFallback>
+              </Avatar>
+            </Link>
+            {!isMe && !isFollowing && (
+              <div 
+                onClick={handleFollow}
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4.5 h-4.5 bg-orange-500 hover:scale-110 active:scale-90 transition-all rounded-full flex items-center justify-center shadow-md cursor-pointer border border-white/20"
+              >
+                <span className="text-white text-xs font-bold">+</span>
+              </div>
+            )}
           </div>
 
           {/* Like */}
@@ -278,12 +428,53 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
           </button>
 
           {/* Share */}
-          <button className="flex flex-col items-center gap-1 group">
-            <div className="w-10 h-10 bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md">
-              <Share2 className="w-5 h-5 group-hover:scale-108 transition-all duration-300" />
-            </div>
-            <span className="text-white md:text-neutral-800 dark:md:text-white text-[10px] font-extrabold tracking-wide drop-shadow-sm">{formatNumber(reel.shares)}</span>
-          </button>
+          <div className="relative flex flex-col items-center group">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowShareMenu(!showShareMenu);
+              }} 
+              className="flex flex-col items-center gap-1 cursor-pointer"
+            >
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-lg backdrop-blur-md",
+                showShareMenu
+                  ? "bg-orange-500 border border-orange-500 text-white"
+                  : "bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500"
+              )}>
+                <Share2 className="w-5 h-5 transition-all duration-300" />
+              </div>
+              <span className="text-white md:text-neutral-800 dark:md:text-white text-[10px] font-extrabold tracking-wide drop-shadow-sm">{formatNumber(shares)}</span>
+            </button>
+            
+            {showShareMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-30" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowShareMenu(false);
+                  }}
+                />
+                <div className="absolute right-12 bottom-0 w-44 bg-card border border-border/80 rounded-xl shadow-lg py-1.5 z-40 animate-in fade-in slide-in-from-right-1 duration-150 space-y-1">
+                  <button
+                    onClick={handleCopyLinkShare}
+                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Sao chép liên kết</span>
+                  </button>
+                  <button
+                    onClick={handleReupPost}
+                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer border-t border-border/10 pt-1"
+                  >
+                    <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Chia sẻ lên bảng tin</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Mute/Unmute sound option */}
           {isVideoFile && (
@@ -298,8 +489,8 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
             </button>
           )}
 
-          {/* More */}
-          {canDelete && (
+          {/* More Menu (Hide/Delete) */}
+          {user && (
             <div className="relative">
               <button 
                 onClick={() => setShowMenu(!showMenu)}
@@ -319,17 +510,29 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
                     className="fixed inset-0 z-30" 
                     onClick={() => setShowMenu(false)}
                   />
-                  <div className="absolute right-0 bottom-12 md:bottom-auto md:top-12 w-36 bg-card border border-border/80 rounded-xl shadow-lg py-1.5 z-40 animate-in fade-in slide-in-from-bottom-1 md:slide-in-from-top-1 duration-150">
+                  <div className="absolute right-0 bottom-12 md:bottom-auto md:top-12 w-36 bg-card border border-border/80 rounded-xl shadow-lg py-1.5 z-40 animate-in fade-in slide-in-from-bottom-1 md:slide-in-from-top-1 duration-150 space-y-1">
                     <button
                       onClick={() => {
                         setShowMenu(false);
-                        handleDeleteReel();
+                        handleHidePost();
                       }}
-                      className="w-full text-left px-3.5 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 transition-colors flex items-center gap-2 cursor-pointer"
+                      className="w-full text-left px-3.5 py-2 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Xóa bài viết</span>
+                      <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>Ẩn bài viết</span>
                     </button>
+                    {canDelete && (
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          handleDeleteReel();
+                        }}
+                        className="w-full text-left px-3.5 py-2 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 transition-colors flex items-center gap-2 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Xóa bài viết</span>
+                      </button>
+                    )}
                   </div>
                 </>
               )}

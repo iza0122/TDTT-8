@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
+from typing import Optional
 from backend.core.database import get_db
 from backend.core.all_models import User
-from backend.core.security import get_current_user
+from backend.core.security import get_current_user, get_current_user_optional
 from backend.modules.identity import schemas, services
 
 router = APIRouter(tags=["Auth & Identity"])
@@ -52,7 +53,7 @@ def get_my_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return services.get_user_profile(db=db, user_id=current_user.id)
+    return services.get_user_profile(db=db, user_id=current_user.id, current_user_id=current_user.id)
 
 @router.get(
     "/users/{user_id}/profile",
@@ -63,9 +64,25 @@ def get_my_profile(
 )
 def get_user_profile(
     user_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
-    return services.get_user_profile(db=db, user_id=user_id)
+    current_user_id = current_user.id if current_user else None
+    return services.get_user_profile(db=db, user_id=user_id, current_user_id=current_user_id)
+
+@router.put(
+    "/users/me/profile",
+    response_model=schemas.UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Cập nhật hồ sơ cá nhân của chính mình",
+    description="Cập nhật thông tin họ tên, avatar_url, và bio trong meta_data."
+)
+def update_profile(
+    data: schemas.UserProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return services.update_user_profile(db=db, user_id=current_user.id, data=data)
 
 @router.post(
     "/google",

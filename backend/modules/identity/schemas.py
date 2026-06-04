@@ -57,15 +57,22 @@ class UserProfileResponse(BaseModel):
     bio: Optional[str] = None
     followers_count: int = 0
     following_count: int = 0
+    is_following: Optional[bool] = False
     posts_count: int = 0
     saved_count: int = 0
     likes_received_count: int = 0
     videos: List[VideoMinResponse] = []
     saved_videos: List[VideoMinResponse] = []
     liked_videos: List[VideoMinResponse] = []
+    hidden_videos: List[VideoMinResponse] = []
 
     class Config:
         from_attributes = True
+
+class UserProfileUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
 
 class GoogleLoginRequest(BaseModel):
     id_token: str

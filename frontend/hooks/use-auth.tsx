@@ -44,6 +44,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedUser = localStorage.getItem("user");
       
       if (storedToken && storedUser) {
+        // Check if token is expired on mount
+        try {
+          const base64Url = storedToken.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const payload = JSON.parse(window.atob(base64));
+          const exp = payload.exp * 1000;
+          const isExpired = exp < Date.now();
+
+          if (isExpired) {
+            const storedRefreshToken = localStorage.getItem("refresh_token");
+            if (!storedRefreshToken) {
+              console.warn("[useAuth] Token is expired on mount and no refresh token, clearing session...");
+              localStorage.removeItem("token");
+              localStorage.removeItem("refresh_token");
+              localStorage.removeItem("user");
+              setToken(null);
+              setUser(null);
+              router.replace("/login");
+              return;
+            }
+          }
+        } catch (e) {
+          console.error("[useAuth] Error parsing token on mount:", e);
+        }
+
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
       }
@@ -52,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   // Overriding window.fetch globally to intercept API requests and refresh expired tokens
   useEffect(() => {
@@ -62,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedToken = localStorage.getItem("token");
       const storedRefreshToken = localStorage.getItem("refresh_token");
 
-      if (storedToken && storedRefreshToken) {
+      if (storedToken) {
         try {
           // Parse JWT expiration without external libraries
           const base64Url = storedToken.split('.')[1];
@@ -73,55 +98,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const isExpiredOrExpiringSoon = exp < Date.now() + 5 * 60 * 1000; // Expired or expiring within 5 minutes
 
           if (isExpiredOrExpiringSoon) {
-            console.log("[useAuth] Token is expired or expiring soon, refreshing...");
-            
-            const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBRfhmp9BLcXtc2N2q4okE6TUyXihi18cc";
-            
-            // Request fresh token via Firebase Securetoken REST API
-            const response = await originalFetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded" },
-              body: new URLSearchParams({
-                grant_type: "refresh_token",
-                refresh_token: storedRefreshToken
-              })
-            });
+            if (storedRefreshToken) {
+              console.log("[useAuth] Token is expired or expiring soon, refreshing...");
+              
+              const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBRfhmp9BLcXtc2N2q4okE6TUyXihi18cc";
+              
+              // Request fresh token via Firebase Securetoken REST API
+              const response = await originalFetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({
+                  grant_type: "refresh_token",
+                  refresh_token: storedRefreshToken
+                })
+              });
 
-            if (response.ok) {
-              const data = await response.json();
-              const newToken = data.id_token;
-              const newRefreshToken = data.refresh_token;
+              if (response.ok) {
+                const data = await response.json();
+                const newToken = data.id_token;
+                const newRefreshToken = data.refresh_token;
 
-              console.log("[useAuth] Token refreshed successfully!");
+                console.log("[useAuth] Token refreshed successfully!");
 
-              // Save new tokens to localStorage and React state
-              localStorage.setItem("token", newToken);
-              localStorage.setItem("refresh_token", newRefreshToken);
-              setToken(newToken);
+                // Save new tokens to localStorage and React state
+                localStorage.setItem("token", newToken);
+                localStorage.setItem("refresh_token", newRefreshToken);
+                setToken(newToken);
 
-              // Rewrite the Authorization header in the request if present
-              if (init && init.headers) {
-                if (init.headers instanceof Headers) {
-                  init.headers.set("Authorization", `Bearer ${newToken}`);
-                } else if (Array.isArray(init.headers)) {
-                  const idx = init.headers.findIndex(([key]) => key.toLowerCase() === "authorization");
-                  if (idx !== -1) {
-                    init.headers[idx] = ["Authorization", `Bearer ${newToken}`];
+                // Rewrite the Authorization header in the request if present
+                if (init && init.headers) {
+                  if (init.headers instanceof Headers) {
+                    init.headers.set("Authorization", `Bearer ${newToken}`);
+                  } else if (Array.isArray(init.headers)) {
+                    const idx = init.headers.findIndex(([key]) => key.toLowerCase() === "authorization");
+                    if (idx !== -1) {
+                      init.headers[idx] = ["Authorization", `Bearer ${newToken}`];
+                    }
+                  } else {
+                    (init.headers as any)["Authorization"] = `Bearer ${newToken}`;
+                    (init.headers as any)["authorization"] = `Bearer ${newToken}`;
                   }
-                } else {
-                  (init.headers as any)["Authorization"] = `Bearer ${newToken}`;
-                  (init.headers as any)["authorization"] = `Bearer ${newToken}`;
                 }
+              } else {
+                console.error("[useAuth] Failed to refresh token, logging out...");
+                localStorage.removeItem("token");
+                localStorage.removeItem("refresh_token");
+                localStorage.removeItem("user");
+                setToken(null);
+                setUser(null);
+                
+                toast({
+                  title: "Phiên làm việc hết hạn 🔒",
+                  description: "Vui lòng đăng nhập lại để tiếp tục.",
+                  variant: "destructive"
+                });
+                router.replace("/login");
+                
+                // Return a mock 401 response directly to avoid hitting the backend with expired tokens
+                return new Response(JSON.stringify({ detail: "Xác thực Firebase Token thất bại: Phiên làm việc hết hạn." }), {
+                  status: 401,
+                  statusText: "Unauthorized",
+                  headers: { "Content-Type": "application/json" }
+                });
               }
             } else {
-              console.error("[useAuth] Failed to refresh token, logging out...");
-              // Token refresh failed (e.g. revoked), logout user
+              console.warn("[useAuth] Token is expired but no refresh token is present, logging out...");
               localStorage.removeItem("token");
-              localStorage.removeItem("refresh_token");
               localStorage.removeItem("user");
               setToken(null);
               setUser(null);
+              
+              toast({
+                title: "Phiên làm việc hết hạn 🔒",
+                description: "Vui lòng đăng nhập lại để tiếp tục.",
+                variant: "destructive"
+              });
               router.replace("/login");
+              
+              // Return a mock 401 response directly
+              return new Response(JSON.stringify({ detail: "Xác thực Firebase Token thất bại: Phiên làm việc hết hạn." }), {
+                status: 401,
+                statusText: "Unauthorized",
+                headers: { "Content-Type": "application/json" }
+              });
             }
           }
         } catch (e) {
@@ -135,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.fetch = originalFetch;
     };
-  }, [router]);
+  }, [router, toast]);
 
   useEffect(() => {
     if (!loading) {

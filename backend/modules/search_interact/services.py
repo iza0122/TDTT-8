@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi import HTTPException, status
 from typing import List, Optional
-from backend.core.all_models import Like, Comment, Video, Merchant, CommentLike
+from backend.core.all_models import Like, Comment, Video, Merchant, CommentLike, User, UserFollow, HiddenVideo
 from backend.modules.search_interact.schemas import LikeToggleResponse, CommentCreate, CommentLikeToggleResponse
 
 def toggle_like(db: Session, video_id: int, user_id: int) -> LikeToggleResponse:
@@ -246,4 +246,125 @@ def delete_comment(db: Session, comment_id: int, current_user) -> dict:
     return {
         "status": "success",
         "message": "Đã xóa bình luận thành công."
+    }
+
+def follow_user(db: Session, follower_id: int, following_id: int) -> dict:
+    if follower_id == following_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bạn không thể tự theo dõi chính mình."
+        )
+    # Check if target user exists
+    target = db.query(User).filter(User.id == following_id).first()
+    if not target:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Người dùng được chọn không tồn tại."
+        )
+    
+    # Check if already followed
+    existing = db.query(UserFollow).filter(
+        UserFollow.follower_id == follower_id,
+        UserFollow.following_id == following_id
+    ).first()
+    
+    if not existing:
+        follow = UserFollow(follower_id=follower_id, following_id=following_id)
+        db.add(follow)
+        db.commit()
+        
+    followers_count = db.query(UserFollow).filter(UserFollow.following_id == following_id).count()
+    return {
+        "is_following": True,
+        "followers_count": followers_count,
+        "message": "Đã theo dõi người dùng thành công."
+    }
+
+def unfollow_user(db: Session, follower_id: int, following_id: int) -> dict:
+    existing = db.query(UserFollow).filter(
+        UserFollow.follower_id == follower_id,
+        UserFollow.following_id == following_id
+    ).first()
+    
+    if existing:
+        db.delete(existing)
+        db.commit()
+        
+    followers_count = db.query(UserFollow).filter(UserFollow.following_id == following_id).count()
+    return {
+        "is_following": False,
+        "followers_count": followers_count,
+        "message": "Đã hủy theo dõi người dùng."
+    }
+
+def hide_post(db: Session, user_id: int, video_id: int) -> dict:
+    # Check if post exists
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bài viết/Video không tồn tại."
+        )
+        
+    existing = db.query(HiddenVideo).filter(
+        HiddenVideo.user_id == user_id,
+        HiddenVideo.video_id == video_id
+    ).first()
+    
+    if not existing:
+        hidden = HiddenVideo(user_id=user_id, video_id=video_id)
+        db.add(hidden)
+        db.commit()
+        
+    return {
+        "status": "success",
+        "message": "Đã ẩn bài viết khỏi bảng tin của bạn."
+    }
+
+def unhide_post(db: Session, user_id: int, video_id: int) -> dict:
+    existing = db.query(HiddenVideo).filter(
+        HiddenVideo.user_id == user_id,
+        HiddenVideo.video_id == video_id
+    ).first()
+    
+    if existing:
+        db.delete(existing)
+        db.commit()
+        
+    return {
+        "status": "success",
+        "message": "Đã hiển thị lại bài viết."
+    }
+
+def share_post(db: Session, video_id: int, user_id: Optional[int] = None) -> dict:
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bài viết/Video không tồn tại."
+        )
+        
+    already_counted = False
+    if user_id:
+        from backend.core.all_models import UserShare
+        existing_share = db.query(UserShare).filter(
+            UserShare.user_id == user_id,
+            UserShare.video_id == video_id
+        ).first()
+        if existing_share:
+            already_counted = True
+        else:
+            new_share = UserShare(user_id=user_id, video_id=video_id)
+            db.add(new_share)
+            
+    if not already_counted:
+        video.shares_count = (video.shares_count or 0) + 1
+        db.commit()
+        db.refresh(video)
+    else:
+        db.commit()
+        
+    return {
+        "shares_count": video.shares_count,
+        "message": "Đã chia sẻ bài viết."
     }

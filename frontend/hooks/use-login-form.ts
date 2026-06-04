@@ -142,7 +142,7 @@ export function useLoginForm() {
         throw new Error(data.detail || "Đồng bộ tài khoản Google thất bại.");
       }
 
-      login(data.access_token, data.user, data.refresh_token);
+      login(data.access_token, data.user, data.refresh_token || result.user.refreshToken);
 
       toast({
         title: "Đăng nhập Google thành công! 🚀",

@@ -54,3 +54,12 @@ class MerchantSearchResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class FollowToggleResponse(BaseModel):
+    is_following: bool
+    followers_count: int
+    message: str
+
+class ShareResponse(BaseModel):
+    shares_count: int
+    message: str

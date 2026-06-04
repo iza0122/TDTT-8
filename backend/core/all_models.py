@@ -87,8 +87,10 @@ class Video(Base):
     post_type = Column(String, default="video", nullable=False)
     
     likes_count = Column(Integer, default=0, nullable=False)
+    shares_count = Column(Integer, default=0, nullable=False)
     reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     tagged_merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=True)
+    reup_from_id = Column(Integer, ForeignKey("videos.id"), nullable=True) # ID bài viết gốc nếu là reup
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -96,6 +98,9 @@ class Video(Base):
     tagged_merchant = relationship("Merchant", back_populates="videos")
     likes = relationship("Like", back_populates="video", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="video", cascade="all, delete-orphan")
+    
+    # Self-referencing relationship for reups
+    reup_from = relationship("Video", remote_side=[id], backref="reups")
 
 
 class Like(Base):
@@ -157,3 +162,28 @@ class Campaign(Base):
 
     # Relationships
     merchant = relationship("Merchant", back_populates="campaigns")
+
+class UserFollow(Base):
+    __tablename__ = "user_follows"
+
+    id = Column(Integer, primary_key=True, index=True)
+    follower_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    following_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class HiddenVideo(Base):
+    __tablename__ = "hidden_videos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class UserShare(Base):
+    __tablename__ = "user_shares"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+

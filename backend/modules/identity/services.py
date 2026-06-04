@@ -1,5 +1,6 @@
 import json
 import urllib
+from typing import Optional
 import urllib.request
 import urllib.error
 from fastapi import HTTPException, status
@@ -7,8 +8,8 @@ from sqlalchemy.orm import Session
 from firebase_admin import auth
 
 from backend.core.config import settings
-from backend.core.all_models import User, Video
-from backend.modules.identity.schemas import RegisterRequest, LoginRequest, UserProfileResponse, GoogleLoginRequest
+from backend.core.all_models import User, Video, UserFollow, HiddenVideo
+from backend.modules.identity.schemas import RegisterRequest, LoginRequest, UserProfileResponse, GoogleLoginRequest, UserProfileUpdateRequest
 
 def register_user(db: Session, data: RegisterRequest) -> User:
     """
@@ -212,7 +213,7 @@ def login_user(db: Session, data: LoginRequest) -> dict:
         )
 
 
-def get_user_profile(db: Session, user_id: int) -> UserProfileResponse:
+def get_user_profile(db: Session, user_id: int, current_user_id: Optional[int] = None) -> UserProfileResponse:
     # 1. Tìm user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -224,17 +225,21 @@ def get_user_profile(db: Session, user_id: int) -> UserProfileResponse:
     # 2. Truy vấn danh sách video review của user này
     user_videos = db.query(Video).filter(Video.reviewer_id == user_id).order_by(Video.created_at.desc()).all()
 
-    # 3. Phân tích meta_data để lấy bio, followers, following, saved
+    # 3. Phân tích meta_data để lấy bio
     meta = user.meta_data or {}
     bio = meta.get("bio", "Blogger ẩm thực đầy nhiệt huyết.")
-    followers_count = meta.get("followers_count", 0)
-    if not followers_count and user.role == "reviewer":
-        # Một chút số ngẫu nhiên đẹp đẽ nếu chưa được seed
-        followers_count = (user_id * 1234) % 15000 + 1000
     
-    following_count = meta.get("following_count", 0)
-    if not following_count and user.role == "reviewer":
-        following_count = (user_id * 321) % 900 + 100
+    # Tính số lượt follow thực tế từ database
+    followers_count = db.query(UserFollow).filter(UserFollow.following_id == user_id).count()
+    following_count = db.query(UserFollow).filter(UserFollow.follower_id == user_id).count()
+    
+    # Kiểm tra trạng thái đang theo dõi của user hiện tại
+    is_following = False
+    if current_user_id and current_user_id != user_id:
+        is_following = db.query(UserFollow).filter(
+            UserFollow.follower_id == current_user_id,
+            UserFollow.following_id == user_id
+        ).first() is not None
         
     # 4. Tính toán likes nhận được
     likes_received = sum(video.likes_count for video in user_videos)
@@ -248,6 +253,11 @@ def get_user_profile(db: Session, user_id: int) -> UserProfileResponse:
     saved_videos = db.query(Video).filter(Video.reviewer_id != user_id).limit(4).all()
     saved_count = len(saved_videos)
 
+    # 7. Lấy danh sách video đã ẩn từ bảng HiddenVideo
+    hidden_relations = db.query(HiddenVideo.video_id).filter(HiddenVideo.user_id == user_id).all()
+    hidden_ids = [r[0] for r in hidden_relations]
+    hidden_videos = db.query(Video).filter(Video.id.in_(hidden_ids)).all() if hidden_ids else []
+
     return UserProfileResponse(
         id=user.id,
         email=user.email,
@@ -257,13 +267,43 @@ def get_user_profile(db: Session, user_id: int) -> UserProfileResponse:
         bio=bio,
         followers_count=followers_count,
         following_count=following_count,
+        is_following=is_following,
         posts_count=len(user_videos),
         saved_count=saved_count,
         likes_received_count=likes_received,
         videos=user_videos,
         saved_videos=saved_videos,
-        liked_videos=liked_videos
+        liked_videos=liked_videos,
+        hidden_videos=hidden_videos
     )
+
+def update_user_profile(db: Session, user_id: int, data: UserProfileUpdateRequest) -> User:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Người dùng không tồn tại."
+        )
+        
+    if data.full_name is not None:
+        user.full_name = data.full_name.strip()
+    if data.avatar_url is not None:
+        user.avatar_url = data.avatar_url.strip()
+    if data.bio is not None:
+        meta = user.meta_data or {}
+        meta["bio"] = data.bio.strip()
+        user.meta_data = meta
+        
+    try:
+        db.commit()
+        db.refresh(user)
+        return user
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi khi cập nhật hồ sơ: {str(e)}"
+        )
 
 
 def login_google_user(db: Session, data: GoogleLoginRequest) -> dict:

@@ -15,7 +15,8 @@ import {
   LogOut, 
   Sparkles,
   LogIn,
-  Camera
+  Camera,
+  UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -93,6 +94,10 @@ export function Header() {
                   <Link href="/" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-primary/10 hover:text-primary transition-all duration-200 group">
                     <Home className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                     <span>Trang chủ</span>
+                  </Link>
+                  <Link href="/?feed=following" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-primary/10 hover:text-primary transition-all duration-200 group">
+                    <UserCheck className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <span>Đã follow</span>
                   </Link>
                   <Link href="/reels" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-primary/10 hover:text-primary transition-all duration-200 group">
                     <Play className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />

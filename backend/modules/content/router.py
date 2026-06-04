@@ -62,12 +62,20 @@ def list_videos(
     cursor: Optional[str] = Query(None, description="Cursor của trang trước (base64 string)"),
     limit: int = Query(8, ge=1, le=100, description="Số lượng bản ghi tối đa trả về"),
     post_type: Optional[str] = Query(None, description="Lọc theo loại post (video hoặc image)"),
+    following_only: bool = Query(False, description="Chỉ lấy các bài viết của những người dùng đang theo dõi"),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
     background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     user_id = current_user.id if current_user else None
-    feed_data = services.get_video_feed(db=db, cursor=cursor, limit=limit, post_type=post_type, current_user_id=user_id)
+    feed_data = services.get_video_feed(
+        db=db, 
+        cursor=cursor, 
+        limit=limit, 
+        post_type=post_type, 
+        current_user_id=user_id,
+        following_only=following_only
+    )
     
     # Kích hoạt tăng lượt impressions của campaign bất đồng bộ qua background task
     if feed_data.get("campaigns_to_track") and background_tasks:
@@ -94,3 +102,17 @@ def delete_video_post(
         video_id=video_id,
         current_user=current_user
     )
+
+@router.post(
+    "/videos/{video_id}/reup",
+    response_model=schemas.VideoResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Chia sẻ lại bài viết lên trang cá nhân (Reup)",
+    description="Nhân bản bài viết/video của người khác thành bài viết của mình. Yêu cầu đăng nhập."
+)
+def reup_video_endpoint(
+    video_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return services.reup_video(db=db, video_id=video_id, reviewer_id=current_user.id)

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2, EyeOff, Copy, Repeat } from "lucide-react";
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,19 +33,130 @@ interface FoodPostProps {
     createdAt: string;
     isLiked: boolean;
     isSaved: boolean;
+    shares?: number;
+    reupFromUser?: {
+      id: number;
+      name: string;
+      username: string;
+      avatar: string;
+    } | null;
   };
   priority?: boolean;
   onPostClick?: () => void;
   onCommentClick?: () => void;
   onLikeToggle?: (isLiked: boolean, likesCount: number) => void;
+  onShareUpdate?: (sharesCount: number) => void;
   onDelete?: () => void;
 }
 
-export function FoodPost({ post, priority = false, onPostClick, onCommentClick, onLikeToggle, onDelete }: FoodPostProps) {
+export function FoodPost({ post, priority = false, onPostClick, onCommentClick, onLikeToggle, onShareUpdate, onDelete }: FoodPostProps) {
   const { token, user } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(post.isSaved);
+  const [shares, setShares] = useState(post.shares || 0);
   const isLikePending = useRef(false);
+
+  useEffect(() => {
+    setShares(post.shares || 0);
+  }, [post.shares]);
+
+  const handleHidePost = async () => {
+    if (!token) {
+      alert("Vui lòng đăng nhập để ẩn bài viết.");
+      return;
+    }
+    if (!confirm("Bạn có chắc chắn muốn ẩn bài viết này không? Nó sẽ không hiển thị trên bảng tin của bạn nữa.")) return;
+
+    try {
+      const response = await fetch(`/api/interact/videos/${post.id}/hide`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        alert("Đã ẩn bài viết.");
+        if (onDelete) {
+          onDelete(); // Xóa khỏi danh sách local feed
+        }
+      } else {
+        const errData = await response.json();
+        alert(errData.detail || "Không thể ẩn bài viết.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi ẩn bài viết:", err);
+    }
+  };
+
+  const handleCopyLinkShare = async () => {
+    setShowShareMenu(false);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(`/api/interact/videos/${post.id}/share`, {
+        method: "POST",
+        headers
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setShares(data.shares_count);
+        if (onShareUpdate) {
+          onShareUpdate(data.shares_count);
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        const shareLink = `${window.location.origin}/?post_id=${post.id}`;
+        await navigator.clipboard.writeText(shareLink);
+        alert("Đã sao chép liên kết chia sẻ! 🔗");
+      }
+    } catch (err) {
+      console.error("Lỗi khi chia sẻ:", err);
+    }
+  };
+
+  const handleReupPost = async () => {
+    setShowShareMenu(false);
+    if (!token) {
+      alert("Vui lòng đăng nhập để chia sẻ lại bài viết lên bảng tin.");
+      return;
+    }
+    
+    if (!confirm("Bạn có chắc muốn chia sẻ lại bài viết này lên bảng tin của mình không?")) return;
+
+    try {
+      const res = await fetch(`/api/content/videos/${post.id}/reup`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        alert("Đã chia sẻ lại bài viết lên bảng tin của bạn! 🔁");
+        
+        // Trigger share count update in DB and locally
+        const shareRes = await fetch(`/api/interact/videos/${post.id}/share`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (shareRes.ok) {
+          const shareData = await shareRes.json();
+          setShares(shareData.shares_count);
+          if (onShareUpdate) {
+            onShareUpdate(shareData.shares_count);
+          }
+        }
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Không thể chia sẻ lại bài viết.");
+      }
+    } catch (err) {
+      console.error("Lỗi khi chia sẻ lại:", err);
+    }
+  };
 
   const canDelete = user && (user.id === post.reviewerId || user.role === "admin");
 
@@ -120,12 +232,23 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
         {/* Header */}
         <div className="flex items-center justify-between p-4 relative border-b border-neutral-100/50 dark:border-neutral-900/50">
           <div className="flex items-center gap-3">
-            <Avatar className="w-10 h-10 ring-2 ring-orange-500/10">
-              <AvatarImage src={post.user.avatar} alt={post.user.name} />
-              <AvatarFallback>{post.user.name[0]}</AvatarFallback>
-            </Avatar>
+            <Link href={post.reviewerId ? `/profile/${post.reviewerId}` : "/profile"}>
+              <Avatar className="w-10 h-10 ring-2 ring-orange-500/10 cursor-pointer">
+                <AvatarImage src={post.user.avatar} alt={post.user.name} />
+                <AvatarFallback>{post.user.name[0]}</AvatarFallback>
+              </Avatar>
+            </Link>
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/75 font-semibold">@{post.user.username}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link href={post.reviewerId ? `/profile/${post.reviewerId}` : "/profile"} className="hover:underline cursor-pointer">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground/75 font-semibold">@{post.user.username}</p>
+                </Link>
+                {post.reupFromUser && (
+                  <span className="text-[9px] font-bold text-orange-500 flex items-center gap-0.5 bg-orange-500/5 px-1.5 py-0.5 rounded-full border border-orange-500/10">
+                    🔁 chia sẻ lại từ @{post.reupFromUser.username}
+                  </span>
+                )}
+              </div>
               <div 
                 onClick={onPostClick}
                 className="flex items-center gap-1.5 text-sm font-extrabold text-neutral-800 dark:text-neutral-100 mt-0.5 hover:text-orange-500 transition-colors cursor-pointer"
@@ -136,7 +259,7 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
             </div>
           </div>
           
-          {canDelete && (
+          {user && (
             <div className="relative">
               <Button 
                 variant="ghost" 
@@ -153,17 +276,29 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
                     className="fixed inset-0 z-30" 
                     onClick={() => setShowMenu(false)}
                   />
-                  <div className="absolute right-0 mt-1.5 w-36 bg-white dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-800/60 rounded-2xl shadow-xl py-1.5 z-40 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute right-0 mt-1.5 w-36 bg-white dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-800/60 rounded-2xl shadow-xl py-1.5 z-40 animate-in fade-in slide-in-from-top-1 duration-150 space-y-1">
                     <button
                       onClick={() => {
                         setShowMenu(false);
-                        handleDeletePost();
+                        handleHidePost();
                       }}
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 transition-colors flex items-center gap-2 cursor-pointer"
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Xóa bài viết</span>
+                      <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>Ẩn bài viết</span>
                     </button>
+                    {canDelete && (
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          handleDeletePost();
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 transition-colors flex items-center gap-2 cursor-pointer border-t border-border/10 pt-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Xóa bài viết</span>
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -232,9 +367,43 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
                 </span>
               </button>
               
-              <button className="transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-blue-500 group/share">
-                <Share2 className="w-5 h-5 stroke-[1.5] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/share:stroke-blue-500 group-hover/share:scale-105" />
-              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => setShowShareMenu(!showShareMenu)} 
+                  className={cn(
+                    "flex items-center gap-1.5 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-blue-500 group/share",
+                    showShareMenu && "text-blue-500 scale-105"
+                  )}
+                >
+                  <Share2 className="w-5 h-5 stroke-[1.5] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/share:stroke-blue-500 group-hover/share:scale-105" />
+                  <span className="text-xs font-bold tracking-wide">{formatNumber(shares)}</span>
+                </button>
+                
+                {showShareMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-30" 
+                      onClick={() => setShowShareMenu(false)}
+                    />
+                    <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-800/60 rounded-2xl shadow-xl py-1.5 z-40 animate-in fade-in slide-in-from-top-1 duration-150 space-y-1">
+                      <button
+                        onClick={handleCopyLinkShare}
+                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>Sao chép liên kết</span>
+                      </button>
+                      <button
+                        onClick={handleReupPost}
+                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer border-t border-border/10 pt-1"
+                      >
+                        <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>Chia sẻ lên bảng tin</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
             
             <button 

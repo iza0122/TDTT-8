@@ -9,7 +9,7 @@ export function useRegisterForm() {
   const router = useRouter();
   const { toast } = useToast();
   const { login } = useAuth();
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +20,7 @@ export function useRegisterForm() {
     password?: string;
     confirmPassword?: string;
   }>({});
-  
+
   const [formData, setFormDataRaw] = useState({
     name: "",
     email: "",
@@ -86,7 +86,7 @@ export function useRegisterForm() {
       const isLengthMet = formData.password.length >= 8;
       const isUpperMet = /[A-Z]/.test(formData.password);
       const isNumberMet = /[0-9]/.test(formData.password);
-      
+
       if (!isLengthMet || !isUpperMet || !isNumberMet) {
         errors.password = "Mật khẩu chưa đáp ứng đầy đủ yêu cầu bảo mật.";
         hasError = true;
@@ -214,7 +214,7 @@ export function useRegisterForm() {
       const errorMsg = isPopupClosed
         ? "Đăng ký bằng Google đã bị hủy."
         : (err.message || "Đã xảy ra lỗi trong quá trình xác thực tài khoản Google.");
-        
+
       setError(errorMsg);
     } finally {
       setIsLoading(false);

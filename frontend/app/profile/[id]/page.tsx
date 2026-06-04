@@ -3,52 +3,141 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Settings, Grid3X3, Bookmark, Heart, MapPin, Home, Share2, LogOut, Loader2, Play, Eye, Plus, Sparkles, ChevronRight } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { Settings, Grid3X3, Heart, MapPin, Home, Share2, Loader2, Play, Eye, Plus, Sparkles, ChevronRight, UserPlus, UserCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
-export default function ProfilePage() {
+export default function PublicProfilePage() {
+  const params = useParams();
   const router = useRouter();
-  const { user, token, loading, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<"posts" | "reels" | "saved" | "liked">("posts");
+  const { user, token, loading } = useAuth();
+  const { toast } = useToast();
+  
+  const targetUserId = params?.id ? Number(params.id) : null;
+  const isMe = user?.id === targetUserId;
+
+  const [activeTab, setActiveTab] = useState<"posts" | "reels">("posts");
   const [profileStats, setProfileStats] = useState<any>(null);
   const [isFetching, setIsFetching] = useState(true);
+  const [isFollowPending, setIsFollowPending] = useState(false);
 
+  // Redirect to own profile if it's the current user
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
+    if (isMe) {
+      router.replace("/profile");
     }
-  }, [user, loading, router]);
+  }, [isMe, router]);
 
   useEffect(() => {
-    const fetchProfileStats = async () => {
-      if (!token) return;
+    const fetchProfileData = async () => {
+      if (!targetUserId) return;
       try {
-        const response = await fetch("/api/auth/users/me/profile", {
-          headers: {
+        const response = await fetch(`/api/auth/users/${targetUserId}/profile`, {
+          headers: token ? {
             "Authorization": `Bearer ${token}`
-          }
+          } : {}
         });
         if (response.ok) {
           const data = await response.json();
           setProfileStats(data);
+        } else {
+          toast({
+            title: "Lỗi tải hồ sơ ❌",
+            description: "Không thể tìm thấy reviewer này.",
+            variant: "destructive"
+          });
+          router.push("/");
         }
       } catch (err) {
-        console.error("Lỗi khi lấy thông tin thống kê profile:", err);
+        console.error("Lỗi khi lấy thông tin profile:", err);
       } finally {
         setIsFetching(false);
       }
     };
 
-    if (token) {
-      fetchProfileStats();
-    } else if (!loading) {
-      setIsFetching(false);
+    fetchProfileData();
+  }, [targetUserId, token, router, toast]);
+
+  const handleFollowToggle = async () => {
+    if (!token) {
+      toast({
+        title: "Yêu cầu đăng nhập 🔒",
+        description: "Vui lòng đăng nhập để theo dõi reviewer này.",
+        variant: "destructive"
+      });
+      router.push("/login");
+      return;
     }
-  }, [token, loading]);
+    if (!profileStats || isFollowPending) return;
+
+    setIsFollowPending(true);
+    const isCurrentlyFollowing = profileStats.is_following;
+    const endpoint = `/api/interact/users/${targetUserId}/${isCurrentlyFollowing ? "unfollow" : "follow"}`;
+    const method = isCurrentlyFollowing ? "DELETE" : "POST";
+
+    try {
+      // Optimitistic UI Update
+      setProfileStats((prev: any) => ({
+        ...prev,
+        is_following: !isCurrentlyFollowing,
+        followers_count: isCurrentlyFollowing ? Math.max(0, prev.followers_count - 1) : prev.followers_count + 1
+      }));
+
+      const res = await fetch(endpoint, {
+        method: method,
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setProfileStats((prev: any) => ({
+          ...prev,
+          is_following: data.is_following,
+          followers_count: data.followers_count
+        }));
+
+        toast({
+          title: data.is_following ? "Đã theo dõi reviewer 🌟" : "Đã hủy theo dõi 🤝",
+          description: data.is_following 
+            ? `Bạn sẽ nhận được các bài review mới nhất từ ${profileStats.full_name}.` 
+            : `Đã dừng nhận thông báo từ ${profileStats.full_name}.`
+        });
+      } else {
+        // Rollback
+        setProfileStats((prev: any) => ({
+          ...prev,
+          is_following: isCurrentlyFollowing,
+          followers_count: isCurrentlyFollowing ? prev.followers_count + 1 : Math.max(0, prev.followers_count - 1)
+        }));
+        const errData = await res.json();
+        throw new Error(errData.detail || "Thao tác thất bại.");
+      }
+    } catch (err: any) {
+      console.error("Lỗi follow:", err);
+      toast({
+        title: "Lỗi hệ thống ❌",
+        description: err.message || "Vui lòng thử lại sau.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsFollowPending(false);
+    }
+  };
+
+  const handleShareProfile = () => {
+    if (typeof window === "undefined") return;
+    navigator.clipboard.writeText(window.location.href);
+    toast({
+      title: "Đã sao chép liên kết 🔗",
+      description: "Đã copy link hồ sơ reviewer này vào bộ nhớ tạm."
+    });
+  };
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) {
@@ -60,7 +149,7 @@ export default function ProfilePage() {
     return num.toString();
   };
 
-  if (loading || (isFetching && !profileStats)) {
+  if (loading || isFetching || !profileStats) {
     return (
       <div className="min-h-screen bg-neutral-50/50 dark:bg-black flex flex-col items-center justify-center gap-4 relative overflow-hidden select-none">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5 pointer-events-none" />
@@ -72,16 +161,15 @@ export default function ProfilePage() {
     );
   }
 
-  const displayName = user?.full_name || profileStats?.full_name || "Blogger ẩm thực";
-  const displayUsername = user?.email ? user.email.split('@')[0] : (profileStats?.email ? profileStats.email.split('@')[0] : "blogger");
-  const displayAvatar = user?.avatar_url || profileStats?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
-  const displayBio = profileStats?.bio || "Đam mê ẩm thực & Chia sẻ quán ngon";
+  const displayName = profileStats.full_name || "Blogger ẩn danh";
+  const displayUsername = profileStats.email ? profileStats.email.split('@')[0] : `user_${profileStats.id}`;
+  const displayAvatar = profileStats.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
+  const displayBio = profileStats.bio || "Đam mê ẩm thực & Chia sẻ quán ngon";
 
-  const postsCount = profileStats?.posts_count ?? 0;
-  const followersCount = profileStats?.followers_count ?? 0;
-  const followingCount = profileStats?.following_count ?? 0;
-  const savedCount = profileStats?.saved_count ?? 0;
-  const likesCount = profileStats?.likes_received_count ?? 0;
+  const postsCount = profileStats.posts_count ?? 0;
+  const followersCount = profileStats.followers_count ?? 0;
+  const followingCount = profileStats.following_count ?? 0;
+  const likesCount = profileStats.likes_received_count ?? 0;
 
   return (
     <div className="min-h-screen bg-neutral-50/30 dark:bg-black/95 text-foreground pb-20 select-none antialiased">
@@ -100,20 +188,7 @@ export default function ProfilePage() {
             <Sparkles className="w-4 h-4 text-orange-500 animate-pulse fill-orange-500/10" />
             <h1 className="font-extrabold text-sm tracking-wide bg-gradient-to-r from-neutral-800 to-neutral-500 dark:from-white dark:to-neutral-400 bg-clip-text text-transparent">@{displayUsername}</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={logout}
-              title="Đăng xuất"
-              className="w-10 h-10 rounded-full bg-red-500/10 dark:bg-red-500/15 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white active:scale-95 transition-all duration-300 flex items-center justify-center cursor-pointer shadow-xs"
-            >
-              <LogOut className="w-4.5 h-4.5" />
-            </button>
-            <Link href="/settings">
-              <button className="w-10 h-10 rounded-full bg-secondary/50 dark:bg-neutral-900/50 border border-border/40 hover:bg-orange-500 hover:border-orange-500 text-foreground hover:text-white active:scale-95 transition-all duration-300 flex items-center justify-center cursor-pointer shadow-xs group">
-                <Settings className="w-4.5 h-4.5 group-hover:rotate-45 transition-transform duration-500" />
-              </button>
-            </Link>
-          </div>
+          <div className="w-10" /> {/* Spacer */}
         </div>
       </header>
 
@@ -134,7 +209,7 @@ export default function ProfilePage() {
                 {/* Profile Image Bezel */}
                 <div className="relative group">
                   <div className="absolute inset-0 bg-gradient-to-tr from-orange-500 via-amber-500 to-red-500 rounded-full blur-[2px] opacity-70 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="relative p-1 bg-gradient-to-tr from-orange-500 via-amber-500 to-red-500 rounded-full shadow-md group-hover:scale-103 transition-transform duration-500">
+                  <div className="relative p-1 bg-gradient-to-tr from-orange-500 via-amber-500 to-red-500 rounded-full shadow-md">
                     <Avatar className="w-20 h-20 ring-2 ring-white dark:ring-black">
                       <AvatarImage src={displayAvatar} alt={displayName} />
                       <AvatarFallback className="bg-secondary text-primary font-black text-2xl">
@@ -175,16 +250,35 @@ export default function ProfilePage() {
                 <p className="text-xs text-muted-foreground leading-relaxed font-semibold pr-4">{displayBio}</p>
               </div>
 
-              {/* Micro CTAs with Trailing Icon inside Button-in-Button */}
+              {/* Micro CTAs - Follow button & Share button */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button className="flex-1 bg-orange-500 text-white hover:bg-orange-600 shadow-md hover:shadow-lg flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
-                  <span>Chỉnh sửa hồ sơ</span>
-                  <div className="w-6.5 h-6.5 bg-white/20 rounded-full flex items-center justify-center transition-all duration-300 group-hover:translate-x-0.5">
-                    <ChevronRight className="w-3.5 h-3.5 text-white" />
+                <button
+                  onClick={handleFollowToggle}
+                  disabled={isFollowPending}
+                  className={cn(
+                    "flex-1 shadow-md hover:shadow-lg flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer",
+                    profileStats.is_following
+                      ? "bg-secondary text-foreground hover:bg-secondary/80 border border-border"
+                      : "bg-orange-500 text-white hover:bg-orange-600"
+                  )}
+                >
+                  <span>{profileStats.is_following ? "Đang theo dõi" : "Theo dõi"}</span>
+                  <div className={cn(
+                    "w-6.5 h-6.5 rounded-full flex items-center justify-center transition-all duration-350",
+                    profileStats.is_following ? "bg-orange-500/10 text-orange-500" : "bg-white/20 text-white"
+                  )}>
+                    {profileStats.is_following ? (
+                      <UserCheck className="w-3.5 h-3.5" />
+                    ) : (
+                      <UserPlus className="w-3.5 h-3.5" />
+                    )}
                   </div>
                 </button>
                 
-                <button className="flex-1 border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
+                <button 
+                  onClick={handleShareProfile}
+                  className="flex-1 border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer"
+                >
                   <span>Chia sẻ hồ sơ</span>
                   <div className="w-6.5 h-6.5 bg-secondary dark:bg-white/10 rounded-full flex items-center justify-center transition-all duration-300 group-hover:rotate-12">
                     <Share2 className="w-3.5 h-3.5 text-foreground/80" />
@@ -195,8 +289,8 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Asymmetrical Bento Grid Stats - centered horizontal list on Mobile, stacked list on Desktop */}
-          <div className="grid grid-cols-3 md:grid-cols-1 gap-3">
+          {/* Bento Grid Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-1 gap-3">
             
             {/* Card 1: Địa điểm */}
             <div className="bg-gradient-to-br from-orange-500/5 to-amber-500/5 border border-orange-500/10 hover:border-orange-500/30 rounded-3xl p-3 md:p-4 text-center md:text-left flex flex-col md:flex-row md:items-center md:gap-4.5 transition-all duration-500 hover:scale-[1.02] cursor-pointer group shadow-xs">
@@ -209,18 +303,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Card 2: Đã lưu */}
-            <div className="bg-gradient-to-br from-teal-500/5 to-emerald-500/5 border border-teal-500/10 hover:border-teal-500/30 rounded-3xl p-3 md:p-4 text-center md:text-left flex flex-col md:flex-row md:items-center md:gap-4.5 transition-all duration-500 hover:scale-[1.02] cursor-pointer group shadow-xs">
-              <div className="w-10 h-10 bg-teal-500/10 text-teal-500 rounded-2xl flex items-center justify-center mx-auto md:mx-0 group-hover:scale-110 group-hover:bg-teal-500 group-hover:text-white transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] flex-shrink-0">
-                <Bookmark className="w-5 h-5 fill-none" />
-              </div>
-              <div>
-                <p className="font-black text-base md:text-lg text-foreground mt-1 md:mt-0 leading-none">{savedCount}</p>
-                <p className="text-[9px] md:text-[10px] text-muted-foreground/80 font-bold uppercase tracking-wider mt-0.5 md:mt-1.5 leading-none">Đã lưu</p>
-              </div>
-            </div>
-
-            {/* Card 3: Lượt thích */}
+            {/* Card 2: Lượt thích nhận được */}
             <div className="bg-gradient-to-br from-rose-500/5 to-red-500/5 border border-rose-500/10 hover:border-rose-500/30 rounded-3xl p-3 md:p-4 text-center md:text-left flex flex-col md:flex-row md:items-center md:gap-4.5 transition-all duration-500 hover:scale-[1.02] cursor-pointer group shadow-xs">
               <div className="w-10 h-10 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center mx-auto md:mx-0 group-hover:scale-110 group-hover:bg-rose-500 group-hover:text-white transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] flex-shrink-0">
                 <Heart className="w-5 h-5 fill-none" />
@@ -238,7 +321,7 @@ export default function ProfilePage() {
         {/* RIGHT COLUMN - Tab switcher & Content Feed Grid on Desktop */}
         <div className="md:col-span-8 space-y-6">
           
-          {/* Dynamic Tactile Tab Switcher (Pill-in-Pill Dynamic Slider) */}
+          {/* Tactile Tab Switcher (Only Posts & Reels) */}
           <div className="relative bg-neutral-200/55 dark:bg-neutral-900/60 p-1.5 rounded-full flex gap-1 border border-neutral-300/30 dark:border-white/5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
             <button
               onClick={() => setActiveTab("posts")}
@@ -250,7 +333,7 @@ export default function ProfilePage() {
               )}
             >
               <Grid3X3 className="w-4.5 h-4.5" />
-              <span className="hidden sm:inline">Bài viết</span>
+              <span>Bài viết</span>
             </button>
             <button
               onClick={() => setActiveTab("reels")}
@@ -262,31 +345,7 @@ export default function ProfilePage() {
               )}
             >
               <Play className="w-4.5 h-4.5" />
-              <span className="hidden sm:inline">Reels</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("saved")}
-              className={cn(
-                "flex-1 py-2.5 flex items-center justify-center gap-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition-all duration-500 cursor-pointer select-none active:scale-95",
-                activeTab === "saved"
-                  ? "bg-white dark:bg-neutral-950 text-orange-500 shadow-sm scale-102 border border-neutral-200/40 dark:border-white/5"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Bookmark className="w-4.5 h-4.5" />
-              <span className="hidden sm:inline">Đã lưu</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("liked")}
-              className={cn(
-                "flex-1 py-2.5 flex items-center justify-center gap-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition-all duration-500 cursor-pointer select-none active:scale-95",
-                activeTab === "liked"
-                  ? "bg-white dark:bg-neutral-950 text-orange-500 shadow-sm scale-102 border border-neutral-200/40 dark:border-white/5"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Heart className="w-4.5 h-4.5" />
-              <span className="hidden sm:inline">Đã thích</span>
+              <span>Reels</span>
             </button>
           </div>
 
@@ -294,27 +353,18 @@ export default function ProfilePage() {
           {(() => {
             let displayedVideos: any[] = [];
             if (activeTab === "posts") {
-              displayedVideos = profileStats?.videos?.filter((video: any) => video.post_type === "image") || [];
+              displayedVideos = profileStats.videos?.filter((video: any) => video.post_type === "image") || [];
             } else if (activeTab === "reels") {
-              displayedVideos = profileStats?.videos?.filter((video: any) => video.post_type === "video") || [];
-            } else if (activeTab === "saved") {
-              displayedVideos = profileStats?.saved_videos || [];
-            } else if (activeTab === "liked") {
-              displayedVideos = profileStats?.liked_videos || [];
+              displayedVideos = profileStats.videos?.filter((video: any) => video.post_type === "video") || [];
             }
 
             const getEmptyTitle = () => {
               if (activeTab === "posts") return "Không có bài viết nào";
-              if (activeTab === "reels") return "Không có video Reels";
-              if (activeTab === "saved") return "Danh sách lưu trống";
-              return "Chưa thích bài viết nào";
+              return "Không có video Reels";
             };
 
             const getEmptyDesc = () => {
-              if (activeTab === "posts") return "Bạn chưa đăng tải bài viết ẩm thực nào. Hãy chia sẻ món ăn ngon đầu tiên cùng cộng đồng nhé!";
-              if (activeTab === "reels") return "Bạn chưa đăng tải video Reels nào. Hãy chia sẻ khoảnh khắc review quán ăn của bạn ngay!";
-              if (activeTab === "saved") return "Bạn chưa lưu bài đăng nào. Duyệt bảng tin ẩm thực và lưu lại những quán bạn muốn thử nhé!";
-              return "Bạn chưa thả tim bài viết nào. Hãy thả tim cho những review quán ăn hữu ích khác nhé!";
+              return `${displayName} chưa đăng tải nội dung nào ở mục này.`;
             };
 
             return (
@@ -341,7 +391,7 @@ export default function ProfilePage() {
                       loading={index < 6 ? "eager" : "lazy"}
                     />
                     
-                    {/* Dynamic blur-glass overlay */}
+                    {/* Glass blur overlay */}
                     <div className="absolute inset-0 bg-black/45 dark:bg-black/55 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-center text-white gap-2 p-3 text-center">
                       <p className="text-[9px] uppercase tracking-wider font-extrabold line-clamp-1">{video.title || "CHI TIẾT"}</p>
                       <div className="flex items-center gap-1 text-xs font-black">
@@ -352,12 +402,11 @@ export default function ProfilePage() {
                   </button>
                 ))}
 
-                {/* Premium Awwwards Empty State */}
+                {/* Empty State */}
                 {displayedVideos.length === 0 && (
                   <div className="col-span-3 text-center py-16 px-6 bg-secondary/15 dark:bg-neutral-900/5 rounded-3xl border border-dashed border-neutral-300 dark:border-white/10 my-4 space-y-5 animate-in fade-in duration-500">
                     <div className="relative w-16 h-16 mx-auto bg-orange-500/10 rounded-2xl flex items-center justify-center text-orange-500 border border-orange-500/20 shadow-sm animate-bounce duration-1000">
                       <Sparkles className="w-8 h-8 fill-orange-500/10" />
-                      <Plus className="w-4 h-4 absolute -bottom-1 -right-1 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold" />
                     </div>
                     
                     <div className="space-y-1.5">
@@ -368,19 +417,6 @@ export default function ProfilePage() {
                         {getEmptyDesc()}
                       </p>
                     </div>
-
-                    {(activeTab === "posts" || activeTab === "reels") && (
-                      <div className="pt-2">
-                        <Link href="/create">
-                          <button className="mx-auto bg-orange-500 hover:bg-orange-600 text-white shadow-md hover:shadow-lg flex items-center justify-between rounded-full pl-6 pr-2.5 py-2 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
-                            <span>Đăng bài ngay</span>
-                            <div className="w-6.5 h-6.5 bg-white/20 rounded-full flex items-center justify-center transition-all duration-300 group-hover:translate-x-0.5">
-                              <Plus className="w-3.5 h-3.5 text-white" />
-                            </div>
-                          </button>
-                        </Link>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
