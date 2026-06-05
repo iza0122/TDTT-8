@@ -9,10 +9,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, token, loading, logout } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"posts" | "reels" | "saved" | "liked">("posts");
   const [profileStats, setProfileStats] = useState<any>(null);
   const [isFetching, setIsFetching] = useState(true);
@@ -58,6 +60,24 @@ export default function ProfilePage() {
       return (num / 1000).toFixed(1) + "K";
     }
     return num.toString();
+  };
+
+  const handleShareProfile = async () => {
+    if (typeof window === "undefined") return;
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: "Đã sao chép liên kết 🔗",
+        description: "Đã sao chép liên kết trang cá nhân!"
+      });
+    } catch (err) {
+      console.error("Lỗi khi sao chép liên kết trang cá nhân:", err);
+      toast({
+        title: "Thất bại ❌",
+        description: "Trình duyệt không cho phép sao chép tự động. Vui lòng copy URL trên thanh địa chỉ.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (loading || (isFetching && !profileStats)) {
@@ -184,7 +204,10 @@ export default function ProfilePage() {
                   </div>
                 </button>
                 
-                <button className="flex-1 border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
+                <button 
+                  onClick={handleShareProfile}
+                  className="flex-1 border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer"
+                >
                   <span>Chia sẻ hồ sơ</span>
                   <div className="w-6.5 h-6.5 bg-secondary dark:bg-white/10 rounded-full flex items-center justify-center transition-all duration-300 group-hover:rotate-12">
                     <Share2 className="w-3.5 h-3.5 text-foreground/80" />

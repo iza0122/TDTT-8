@@ -187,3 +187,16 @@ class UserShare(Base):
     video_id = Column(Integer, ForeignKey("videos.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+
+class SavedPost(Base):
+    __tablename__ = "saved_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = relationship("User", backref="saved_posts_rel")
+    video = relationship("Video", backref="saved_by_users")
+

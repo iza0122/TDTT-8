@@ -63,3 +63,8 @@ class FollowToggleResponse(BaseModel):
 class ShareResponse(BaseModel):
     shares_count: int
     message: str
+
+
+class SaveToggleResponse(BaseModel):
+    saved: bool
+    message: str

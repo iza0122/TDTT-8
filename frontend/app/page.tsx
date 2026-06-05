@@ -37,7 +37,8 @@ import {
   UserCheck
 } from "lucide-react";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
+import { cn, formatTimeAgo } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 import { CaptionText } from "@/components/caption-text";
 
 interface Comment {
@@ -56,6 +57,7 @@ interface Comment {
 
 export default function HomePage() {
   const { user, token } = useAuth();
+  const { toast } = useToast();
   const displayName = user?.full_name || "Khách";
   const displayUsername = user?.email ? user.email.split('@')[0] : "guest";
   const displayAvatar = user?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
@@ -85,7 +87,8 @@ export default function HomePage() {
             user: {
               name: item.user?.full_name || "Người dùng",
               username: item.user?.username || `user_${item.reviewer_id}`,
-              avatar: item.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+              avatar: item.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+              is_following: item.user?.is_following || false
             },
             restaurant: {
               name: item.restaurant?.name || "Quán ăn ẩm thực",
@@ -105,9 +108,9 @@ export default function HomePage() {
               avatar: item.reup_from_user.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
             } : null,
             saves: Math.floor(Math.random() * 12) + 3,
-            createdAt: "Vừa xong",
+            createdAt: item.created_at,
             isLiked: item.is_liked || false,
-            isSaved: false
+            isSaved: item.is_saved || false
           }));
           setPostsList(mapped);
         }
@@ -145,6 +148,85 @@ export default function HomePage() {
     fetchSuggestions();
   }, []);
 
+  const handleFollowBlogger = async (reviewerId: number, isCurrentlyFollowing: boolean) => {
+    if (!token) {
+      toast({
+        title: "Thông báo",
+        description: "Vui lòng đăng nhập để thực hiện chức năng này.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const endpoint = `/api/interact/users/${reviewerId}/${isCurrentlyFollowing ? "unfollow" : "follow"}`;
+    const method = isCurrentlyFollowing ? "DELETE" : "POST";
+
+    try {
+      // Optimistic Update
+      setPostsList(prev => prev.map(p => {
+        if (p.reviewerId === reviewerId) {
+          return {
+            ...p,
+            user: { ...p.user, is_following: !isCurrentlyFollowing }
+          };
+        }
+        return p;
+      }));
+
+      const res = await fetch(endpoint, {
+        method: method,
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPostsList(prev => prev.map(p => {
+          if (p.reviewerId === reviewerId) {
+            return {
+              ...p,
+              user: { ...p.user, is_following: data.is_following }
+            };
+          }
+          return p;
+        }));
+        toast({
+          title: "Thành công",
+          description: data.is_following ? "Đã theo dõi blogger này!" : "Đã hủy theo dõi blogger này.",
+        });
+      } else {
+        // Rollback
+        setPostsList(prev => prev.map(p => {
+          if (p.reviewerId === reviewerId) {
+            return {
+              ...p,
+              user: { ...p.user, is_following: isCurrentlyFollowing }
+            };
+          }
+          return p;
+        }));
+        const errData = await res.json();
+        toast({
+          title: "Thất bại",
+          description: errData.detail || "Không thể thực hiện yêu cầu.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error("Lỗi khi theo dõi blogger:", err);
+      // Rollback
+      setPostsList(prev => prev.map(p => {
+        if (p.reviewerId === reviewerId) {
+          return {
+            ...p,
+            user: { ...p.user, is_following: isCurrentlyFollowing }
+          };
+        }
+        return p;
+      }));
+    }
+  };
+
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [activeComments, setActiveComments] = useState<Comment[]>([]);
   const [isFetchingComments, setIsFetchingComments] = useState(false);
@@ -179,7 +261,7 @@ export default function HomePage() {
               avatar: c.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
             },
             content: c.content,
-            createdAt: "Hôm nay",
+            createdAt: formatTimeAgo(c.created_at),
             likes: c.likes_count,
             replies: c.replies ? c.replies.map((r: any) => ({
               id: String(r.id),
@@ -190,7 +272,7 @@ export default function HomePage() {
                 avatar: r.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
               },
               content: r.content,
-              createdAt: "Hôm nay",
+              createdAt: formatTimeAgo(r.created_at),
               likes: r.likes_count
             })) : []
           }));
@@ -470,6 +552,14 @@ export default function HomePage() {
                   onDelete={() => {
                     setPostsList(prev => prev.filter(p => p.id !== post.id));
                   }}
+                  onSaveToggle={(isSaved) => {
+                    setPostsList(prev => prev.map(p => {
+                      if (p.id === post.id) {
+                        return { ...p, isSaved };
+                      }
+                      return p;
+                    }));
+                  }}
                 />
               ))
             ) : (
@@ -573,8 +663,18 @@ export default function HomePage() {
                       <p className="text-[9px] text-muted-foreground/60 truncate">@{post.user.username}</p>
                     </div>
                   </Link>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs font-extrabold text-orange-500 hover:text-white hover:bg-orange-500 px-3 rounded-full border border-orange-500/20 hover:scale-105 active:scale-95 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer">
-                    Theo dõi
+                  <Button 
+                    size="sm" 
+                    variant={post.user.is_following ? "secondary" : "ghost"}
+                    onClick={() => handleFollowBlogger(post.reviewerId, post.user.is_following)}
+                    className={cn(
+                      "h-7 text-xs font-extrabold px-3 rounded-full hover:scale-105 active:scale-95 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer",
+                      post.user.is_following
+                        ? "bg-secondary text-foreground border border-border"
+                        : "text-orange-500 hover:text-white hover:bg-orange-500 border border-orange-500/20"
+                    )}
+                  >
+                    {post.user.is_following ? "Đang theo dõi" : "Theo dõi"}
                   </Button>
                 </div>
               ))}
@@ -679,13 +779,45 @@ export default function HomePage() {
                   }
                 };
 
-                const handleSaveDetail = () => {
-                  setPostsList(prev => prev.map(p => {
-                    if (p.id === activePost.id) {
-                      return { ...p, isSaved: !p.isSaved };
+                const handleSaveDetail = async () => {
+                  if (!token) {
+                    toast({
+                      title: "Thông báo",
+                      description: "Vui lòng đăng nhập để lưu bài viết.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  try {
+                    const res = await fetch(`/api/interact/videos/${activePost.id}/save`, {
+                      method: "POST",
+                      headers: {
+                        "Authorization": `Bearer ${token}`
+                      }
+                    });
+                    if (res.ok) {
+                      const data = await res.json();
+                      setPostsList(prev => prev.map(p => {
+                        if (p.id === activePost.id) {
+                          return { ...p, isSaved: data.saved };
+                        }
+                        return p;
+                      }));
+                      toast({
+                        title: data.saved ? "Đã lưu bài viết 📌" : "Đã hủy lưu bài viết 🔓",
+                        description: data.message,
+                      });
+                    } else {
+                      const errData = await res.json();
+                      toast({
+                        title: "Thất bại",
+                        description: errData.detail || "Không thể lưu bài viết.",
+                        variant: "destructive"
+                      });
                     }
-                    return p;
-                  }));
+                  } catch (err) {
+                    console.error("Lỗi khi lưu bài viết:", err);
+                  }
                 };
 
                 const handleSendComment = async (e?: React.FormEvent) => {
@@ -716,7 +848,7 @@ export default function HomePage() {
                           avatar: user?.avatar_url || displayAvatar,
                         },
                         content: c.content,
-                        createdAt: "Vừa xong",
+                        createdAt: formatTimeAgo(c.created_at),
                         likes: 0,
                         replies: []
                       };

@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 interface ReelCardProps {
   reel: {
@@ -45,11 +46,13 @@ interface ReelCardProps {
   onMuteToggle: () => void;
   onLikeToggle?: (isLiked: boolean, likesCount: number) => void;
   onShareUpdate?: (sharesCount: number) => void;
+  onFollowToggle?: (isFollowing: boolean) => void;
   onDelete?: () => void;
 }
 
-export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = false, isMuted, onMuteToggle, onLikeToggle, onShareUpdate, onDelete }: ReelCardProps) {
+export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = false, isMuted, onMuteToggle, onLikeToggle, onShareUpdate, onFollowToggle, onDelete }: ReelCardProps) {
   const { token, user } = useAuth();
+  const { toast } = useToast();
   const [showMenu, setShowMenu] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [isLiked, setIsLiked] = useState(reel.isLiked || false);
@@ -126,7 +129,11 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
   const handleFollow = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!token) {
-      alert("Vui lòng đăng nhập để theo dõi reviewer này.");
+      toast({
+        title: "Thông báo",
+        description: "Vui lòng đăng nhập để theo dõi reviewer này.",
+        variant: "destructive"
+      });
       return;
     }
     if (!reel.reviewerId || isMe) return;
@@ -140,7 +147,15 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
         }
       });
       if (res.ok) {
-        setIsFollowing(true);
+        const data = await res.json();
+        setIsFollowing(data.is_following);
+        if (onFollowToggle) {
+          onFollowToggle(data.is_following);
+        }
+        toast({
+          title: "Thành công",
+          description: `Đã theo dõi @${reel.user.username}`,
+        });
       }
     } catch (err) {
       console.error("Lỗi khi theo dõi:", err);
@@ -170,7 +185,10 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
       if (typeof window !== "undefined") {
         const shareLink = `${window.location.origin}/reels?id=${reel.id}`;
         await navigator.clipboard.writeText(shareLink);
-        alert("Đã sao chép liên kết chia sẻ! 🔗");
+        toast({
+          title: "Thành công",
+          description: "Đã sao chép liên kết!",
+        });
       }
     } catch (err) {
       console.error("Lỗi khi sao chép liên kết chia sẻ:", err);
