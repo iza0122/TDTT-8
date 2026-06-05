@@ -17,16 +17,21 @@ interface MapViewProps {
   filteredRestaurants: any[];
   selectedRestaurant: any | null;
   onSelectRestaurant: (res: any) => void;
+  mapCenter?: { lat: number; lng: number };
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 export function MapView({
   filteredRestaurants,
   selectedRestaurant,
-  onSelectRestaurant
+  onSelectRestaurant,
+  mapCenter,
+  userLocation
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const [tokenError, setTokenError] = useState(!hasValidToken);
 
   // Initialize Mapbox Map Instance
@@ -58,6 +63,49 @@ export function MapView({
       }
     };
   }, []);
+
+  // Sync User Location Marker
+  useEffect(() => {
+    if (!mapRef.current || !hasValidToken) return;
+    const map = mapRef.current;
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+      userMarkerRef.current = null;
+    }
+
+    if (userLocation) {
+      const userEl = document.createElement("div");
+      userEl.className = "user-location-marker";
+      userEl.innerHTML = `
+        <div class="user-pulse"></div>
+        <div class="user-dot"></div>
+      `;
+      userMarkerRef.current = new mapboxgl.Marker({ element: userEl })
+        .setLngLat([userLocation.lng, userLocation.lat])
+        .addTo(map);
+    }
+  }, [userLocation, hasValidToken]);
+
+  // Recenter map smoothly when mapCenter coordinates change
+  useEffect(() => {
+    if (!mapRef.current || !hasValidToken || !mapCenter) return;
+    
+    const map = mapRef.current;
+    
+    // Check if map is already centered close to avoid jumpiness
+    const currentCenter = map.getCenter();
+    const isClose = Math.abs(currentCenter.lat - mapCenter.lat) < 0.0001 && 
+                    Math.abs(currentCenter.lng - mapCenter.lng) < 0.0001;
+                    
+    if (!isClose) {
+      map.easeTo({
+        center: [mapCenter.lng, mapCenter.lat],
+        zoom: 13,
+        duration: 1000
+      });
+    }
+  }, [mapCenter, hasValidToken]);
 
   // Sync Markers when filteredRestaurants list changes
   useEffect(() => {
@@ -111,6 +159,32 @@ export function MapView({
 
       markersRef.current.push(marker);
     });
+
+    // Auto-fit map camera bounds to show all markers inside the viewport
+    if (filteredRestaurants.length > 0) {
+      const bounds = new mapboxgl.LngLatBounds();
+      
+      filteredRestaurants.forEach((res) => {
+        if (res.lng && res.lat) {
+          bounds.extend([res.lng, res.lat]);
+        }
+      });
+
+      // Calculate responsive map padding offsets to prevent left sidebar and detail panels overlaying pins
+      const isDesktop = typeof window !== "undefined" && window.innerWidth >= 1024;
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      
+      const paddingLeft = isDesktop ? 440 : 20;
+      const paddingBottom = isMobile ? 120 : (isDesktop ? 20 : 260);
+      const paddingTop = 40;
+      const paddingRight = 40;
+
+      map.fitBounds(bounds, {
+        padding: { top: paddingTop, bottom: paddingBottom, left: paddingLeft, right: paddingRight },
+        maxZoom: 15, // Cap maximum zoom (to prevent overzooming on a single pin)
+        duration: 1200 // Smooth zoom animation duration
+      });
+    }
   }, [filteredRestaurants, onSelectRestaurant]);
 
   // Recenter map smoothly and toggle active class when a restaurant is selected
@@ -282,6 +356,45 @@ export function MapView({
 
         .restaurant-rating {
           color: #f59e0b;
+        }
+
+        /* User location blue dot pulse marker styles */
+        .user-location-marker {
+          width: 20px;
+          height: 20px;
+          position: relative;
+          z-index: 40;
+        }
+        .user-dot {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #3b82f6;
+          border: 2px solid #ffffff;
+          box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
+          position: absolute;
+          top: 3px;
+          left: 3px;
+        }
+        .user-pulse {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: rgba(59, 130, 246, 0.4);
+          position: absolute;
+          top: 0;
+          left: 0;
+          animation: user-pulse-anim 2s infinite ease-out;
+        }
+        @keyframes user-pulse-anim {
+          0% {
+            transform: scale(1);
+            opacity: 0.8;
+          }
+          100% {
+            transform: scale(3);
+            opacity: 0;
+          }
         }
 
       `}} />
