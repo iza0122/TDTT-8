@@ -1,11 +1,40 @@
-export interface Restaurant {
-  id: string;
+export interface MerchantCreatePayload {
   name: string;
   address: string;
   category: string;
-  lat: number;
-  lng: number;
-  rating: number;
+  latitude: number;
+  longitude: number;
+  description?: string;
+}
+
+export interface MerchantResponse {
+  id: number;
+  name: string;
+  address: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  description: string | null;
+  rating_avg: number;
+  owner_id: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Restaurant {
+  id: number; // Changed from string to number as per backend `id = Column(Integer, ...)`
+  name: string;
+  address: string;
+  category: string;
+  latitude: number; // Changed from lat
+  longitude: number; // Changed from lng
+  description: string | null; // Added
+  rating_avg: number; // Changed from rating
+  owner_id: number; // Added
+  is_active: boolean; // Added
+  created_at: string; // Added
+
+  // UI-specific fields that mapRawMerchantToRestaurant will fill
   reviews: number;
   isOpen: boolean;
   openTime: string;
@@ -29,20 +58,42 @@ export function mapRawMerchantToRestaurant(item: any): Restaurant {
   const mockPriceRange = "30k - 100k";
 
   return {
-    id: String(item.id),
+    id: Number(item.id),
     name: item.name,
     address: item.address || "",
     category: item.category || "Món ăn",
-    lat: item.latitude,
-    lng: item.longitude,
-    rating: fallbackRating,
+    latitude: item.latitude,
+    longitude: item.longitude,
+    rating_avg: fallbackRating,
     reviews: mockReviews,
     isOpen: true,
     openTime: mockOpenTime,
     priceRange: mockPriceRange,
     image: mockImage,
-    distance: item.distance
+    distance: item.distance,
+    description: item.description || null,
+    owner_id: item.owner_id,
+    is_active: item.is_active,
+    created_at: item.created_at
   };
+}
+
+export async function createMerchant(token: string, merchantData: MerchantCreatePayload): Promise<MerchantResponse> {
+  const response = await fetch("/api/merchant/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify(merchantData),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || "Failed to create merchant.");
+  }
+
+  return response.json();
 }
 
 export interface SearchMerchantsParams {

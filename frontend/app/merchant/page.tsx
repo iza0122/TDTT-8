@@ -121,6 +121,15 @@ export default function MerchantDashboardOverviewPage() {
             <CardTitle className="text-sm font-semibold">Thao tác nhanh</CardTitle>
           </CardHeader>
           <CardContent className="px-5 py-4 space-y-2">
+            <Link href="/merchant/add-restaurant" className="block">
+              <Button variant="outline" className="w-full justify-start gap-3 h-10 text-sm">
+                <div className="w-6 h-6 rounded-md bg-orange-500/10 flex items-center justify-center shrink-0">
+                  <Plus className="w-3.5 h-3.5 text-orange-500" />
+                </div>
+                Thêm Quán Ăn Mới
+                <ArrowRight className="w-3.5 h-3.5 ml-auto text-muted-foreground" />
+              </Button>
+            </Link>
             <Link href="/merchant/menu" className="block">
               <Button variant="outline" className="w-full justify-start gap-3 h-10 text-sm">
                 <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
