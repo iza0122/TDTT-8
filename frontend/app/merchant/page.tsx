@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/merchant/stat-card";
 import { PageHeader } from "@/components/merchant/page-header";
 import Link from "next/link";
+import MerchantList from "@/components/merchant/merchant-list";
 import {
   Star,
   MessageSquare,
@@ -43,6 +44,8 @@ export default function MerchantDashboardOverviewPage() {
         title="Dashboard"
         description="Tổng quan hoạt động nhà hàng của bạn"
       />
+
+      <MerchantList />
 
       {/* Row 1 — Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

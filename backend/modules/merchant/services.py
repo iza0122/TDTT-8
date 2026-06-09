@@ -25,12 +25,25 @@ def create_merchant(db: Session, merchant: schemas.MerchantCreate, owner_id: int
 def get_merchant(db: Session, merchant_id: int):
     return db.query(Merchant).filter(Merchant.id == merchant_id).first()
 
+def update_merchant(db: Session, db_merchant: Merchant, merchant_update: schemas.MerchantUpdate):
+    for field, value in merchant_update.model_dump(exclude_unset=True).items():
+        setattr(db_merchant, field, value)
+    db.commit()
+    db.refresh(db_merchant)
+    return db_merchant
+
 def create_menu_item(db: Session, merchant_id: int, menu: schemas.MenuCreate):
     db_menu = Menu(**menu.model_dump(), merchant_id=merchant_id)
     db.add(db_menu)
     db.commit()
     db.refresh(db_menu)
     return db_menu
+
+def get_merchants_by_owner(db: Session, owner_id: int):
+    return db.query(Merchant).filter(Merchant.owner_id == owner_id).all()
+
+def get_all_merchants(db: Session):
+    return db.query(Merchant).all()
 
 def toggle_campaign(db: Session, merchant_id: int, is_active: bool):
     campaign = db.query(Campaign).filter(Campaign.merchant_id == merchant_id).first()

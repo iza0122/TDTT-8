@@ -8,7 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/merchant/page-header";
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { getMerchantsByOwner, updateMerchant, MerchantResponse, MerchantUpdatePayload } from "@/lib/services/merchant";
 import { UploadCloud, X, MapPin, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -87,21 +90,168 @@ function ImageUploadZone({ label, description, multiple = false }: ImageUploadZo
   );
 }
 
-function SaveButton({ label = "Lưu thay đổi" }: { label?: string }) {
-  const [saving, setSaving] = useState(false);
-  const handleClick = () => {
-    setSaving(true);
-    setTimeout(() => setSaving(false), 1500);
-  };
+interface SaveButtonProps {
+  label?: string;
+  onClick: () => void;
+  loading: boolean;
+}
+
+function SaveButton({ label = "Lưu thay đổi", onClick, loading }: SaveButtonProps) {
   return (
-    <Button onClick={handleClick} disabled={saving} className="gap-2">
-      {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-      {saving ? "Đang lưu..." : label}
+    <Button type="button" onClick={onClick} disabled={loading} className="gap-2">
+      {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+      {loading ? "Đang lưu..." : label}
     </Button>
   );
 }
 
 export default function MerchantProfilePage() {
+  const { token, user } = useAuth();
+  const { toast } = useToast();
+
+  const [merchant, setMerchant] = useState<MerchantResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form states
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
+  const [latitude, setLatitude] = useState<string>("");
+  const [longitude, setLongitude] = useState<string>("");
+  const [slogan, setSlogan] = useState(""); // Assuming slogan will be added to backend later
+  const [hours, setHours] = useState(""); // Assuming hours will be added to backend later
+  const [phone, setPhone] = useState(""); // Assuming phone will be added to backend later
+  const [email, setEmail] = useState(""); // Assuming email will be added to backend later
+
+  useEffect(() => {
+    const fetchMerchantData = async () => {
+      if (!token || !user) {
+        setError("Authentication required.");
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const userMerchants = await getMerchantsByOwner(token);
+        if (userMerchants.length > 0) {
+          const firstMerchant = userMerchants[0]; // Assuming one merchant for simplicity
+          setMerchant(firstMerchant);
+          setName(firstMerchant.name);
+          setAddress(firstMerchant.address || "");
+          setCategory(firstMerchant.category || "");
+          setDescription(firstMerchant.description || "");
+          setLatitude(firstMerchant.latitude.toString());
+          setLongitude(firstMerchant.longitude.toString());
+          // For fields not directly in MerchantResponse, leave as default or set from another source if available
+          // setSlogan(firstMerchant.slogan || "");
+          // setHours(firstMerchant.hours || "");
+          // setPhone(firstMerchant.phone || "");
+          // setEmail(firstMerchant.email || "");
+        } else {
+          setError("No merchant found for this user.");
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch merchant data.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMerchantData();
+  }, [token, user]);
+
+  const handleSubmit = async (tab: string) => {
+    if (!token || !merchant) {
+      toast({
+        title: "Lỗi 🙁",
+        description: "Chưa đăng nhập hoặc không tìm thấy quán ăn.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    let payload: MerchantUpdatePayload = {};
+    let successMessage = "";
+    let errorMessage = "";
+
+    switch (tab) {
+      case "general":
+        payload = { name, category, description };
+        successMessage = "Thông tin chung đã được cập nhật.";
+        errorMessage = "Lỗi khi cập nhật thông tin chung.";
+        break;
+      case "contact":
+        payload = { address }; // Assuming phone and email are not part of merchant schema
+        successMessage = "Thông tin liên hệ đã được cập nhật.";
+        errorMessage = "Lỗi khi cập nhật thông tin liên hệ.";
+        break;
+      case "location":
+        payload = {
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+        };
+        successMessage = "Vị trí đã được cập nhật.";
+        errorMessage = "Lỗi khi cập nhật vị trí.";
+        break;
+      case "images":
+        // Image handling logic will go here later. For now, it's a placeholder.
+        successMessage = "Hình ảnh đã được cập nhật (placeholder).";
+        errorMessage = "Lỗi khi cập nhật hình ảnh (placeholder).";
+        setIsSaving(false); // No actual saving for images yet
+        toast({
+          title: "Thông báo",
+          description: successMessage,
+          variant: "default",
+        });
+        return;
+      default:
+        setIsSaving(false);
+        return;
+    }
+
+    try {
+      const updated = await updateMerchant(merchant.id, token, payload);
+      setMerchant(updated);
+      toast({
+        title: "Thành công! 🎉",
+        description: successMessage,
+        variant: "default",
+      });
+    } catch (err: any) {
+      console.error(errorMessage, err);
+      setError(err.message || errorMessage);
+      toast({
+        title: "Lỗi 🙁",
+        description: err.message || errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="ml-2 text-primary">Đang tải thông tin quán ăn...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="min-h-screen flex items-center justify-center text-red-500">Lỗi: {error}</div>;
+  }
+
+  if (!merchant) {
+    return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Không tìm thấy thông tin quán ăn.</div>;
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -127,20 +277,20 @@ export default function MerchantProfilePage() {
             <CardContent className="space-y-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Tên nhà hàng</Label>
-                <Input id="name" defaultValue="Delicious Bites" />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="slogan">Slogan</Label>
-                <Input id="slogan" placeholder="Ví dụ: Hương vị đích thực từ trái tim" />
+                <Input id="slogan" value={slogan} onChange={(e) => setSlogan(e.target.value)} placeholder="Ví dụ: Hương vị đích thực từ trái tim" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="description">Mô tả</Label>
-                <Textarea id="description" placeholder="Mô tả ngắn về nhà hàng..." rows={4} />
+                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="cuisine">Loại ẩm thực</Label>
-                  <Select>
+                  <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn loại ẩm thực" />
                     </SelectTrigger>
@@ -155,10 +305,10 @@ export default function MerchantProfilePage() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="hours">Giờ hoạt động</Label>
-                  <Input id="hours" placeholder="Ví dụ: T2–CN: 9:00 – 22:00" />
+                  <Input id="hours" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="Ví dụ: T2–CN: 9:00 – 22:00" />
                 </div>
               </div>
-              <SaveButton />
+              <SaveButton onClick={() => handleSubmit("general")} loading={isSaving} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -173,19 +323,19 @@ export default function MerchantProfilePage() {
             <CardContent className="space-y-4">
               <div className="grid gap-2">
                 <Label htmlFor="address">Địa chỉ</Label>
-                <Input id="address" placeholder="Ví dụ: 123 Nguyễn Huệ, Quận 1, TP.HCM" />
+                <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ví dụ: 123 Nguyễn Huệ, Quận 1, TP.HCM" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="phone">Số điện thoại</Label>
-                  <Input id="phone" placeholder="Ví dụ: 028 1234 5678" />
+                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Ví dụ: 028 1234 5678" />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="Ví dụ: info@nharang.com" />
+                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Ví dụ: info@nharang.com" />
                 </div>
               </div>
-              <SaveButton />
+              <SaveButton onClick={() => handleSubmit("contact")} loading={isSaving} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -211,7 +361,7 @@ export default function MerchantProfilePage() {
                 description="Có thể tải nhiều ảnh cùng lúc"
                 multiple
               />
-              <SaveButton label="Tải ảnh lên" />
+              <SaveButton label="Tải ảnh lên" onClick={() => handleSubmit("images")} loading={isSaving} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -227,11 +377,11 @@ export default function MerchantProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="latitude">Vĩ độ (Latitude)</Label>
-                  <Input id="latitude" placeholder="Ví dụ: 10.7769" />
+                  <Input id="latitude" value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="Ví dụ: 10.7769" />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="longitude">Kinh độ (Longitude)</Label>
-                  <Input id="longitude" placeholder="Ví dụ: 106.7009" />
+                  <Input id="longitude" value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="Ví dụ: 106.7009" />
                 </div>
               </div>
 
@@ -250,7 +400,7 @@ export default function MerchantProfilePage() {
                 </div>
               </Link>
 
-              <SaveButton label="Lưu vị trí" />
+              <SaveButton label="Lưu vị trí" onClick={() => handleSubmit("location")} loading={isSaving} />
             </CardContent>
           </Card>
         </TabsContent>

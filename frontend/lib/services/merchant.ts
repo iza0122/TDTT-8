@@ -7,6 +7,16 @@ export interface MerchantCreatePayload {
   description?: string;
 }
 
+export interface MerchantUpdatePayload {
+  name?: string;
+  address?: string;
+  category?: string;
+  latitude?: number;
+  longitude?: number;
+  description?: string;
+  is_active?: boolean;
+}
+
 export interface MerchantResponse {
   id: number;
   name: string;
@@ -129,4 +139,43 @@ export async function searchMerchantsGeo(params: SearchMerchantsParams): Promise
   }
 
   return data.map(mapRawMerchantToRestaurant);
+}
+
+export async function getMerchantsByOwner(token: string): Promise<MerchantResponse[]> {
+  const response = await fetch("/api/merchant/me", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || "Failed to fetch merchants by owner.");
+  }
+
+  const data = await response.json();
+  if (!Array.isArray(data)) {
+    return [];
+  }
+  return data;
+}
+
+export async function updateMerchant(merchantId: number, token: string, merchantData: MerchantUpdatePayload): Promise<MerchantResponse> {
+  const response = await fetch(`/api/merchant/${merchantId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+    body: JSON.stringify(merchantData),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || "Failed to update merchant.");
+  }
+
+  return response.json();
 }
