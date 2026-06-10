@@ -2,7 +2,7 @@
  
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Heart, MessageCircle, Share2, Music2, Play, Pause, MapPin, MoreVertical, Volume2, VolumeX, Trash2, EyeOff, Copy, Repeat } from "lucide-react";
+import { Heart, MessageCircle, Share2, Music2, Play, Pause, MapPin, MoreVertical, Volume2, VolumeX, Trash2, EyeOff, Copy, Repeat, Check } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -389,9 +389,9 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
             {!isMe && !isFollowing && (
               <div 
                 onClick={handleFollow}
-                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4.5 h-4.5 bg-orange-500 hover:scale-110 active:scale-90 transition-all rounded-full flex items-center justify-center shadow-md cursor-pointer border border-white/20"
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4.5 h-4.5 bg-[#fe2c55] hover:scale-110 active:scale-90 transition-all rounded-full flex items-center justify-center shadow-md cursor-pointer border border-white/20"
               >
-                <span className="text-white text-xs font-bold">+</span>
+                <span className="text-white text-xs font-bold leading-none -mt-[1px]">+</span>
               </div>
             )}
           </div>

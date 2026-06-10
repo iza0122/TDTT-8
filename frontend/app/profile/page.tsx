@@ -60,6 +60,13 @@ export default function ProfilePage() {
     return num.toString();
   };
 
+  const handleShareProfile = () => {
+    if (typeof window === "undefined" || !user) return;
+    const shareUrl = `${window.location.origin}/profile/${user.id}`;
+    navigator.clipboard.writeText(shareUrl);
+    alert("Đã sao chép liên kết chia sẻ hồ sơ! 🔗");
+  };
+
   if (loading || (isFetching && !profileStats)) {
     return (
       <div className="min-h-screen bg-neutral-50/50 dark:bg-black flex flex-col items-center justify-center gap-4 relative overflow-hidden select-none">
@@ -177,15 +184,20 @@ export default function ProfilePage() {
 
               {/* Micro CTAs with Trailing Icon inside Button-in-Button */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <button className="flex-1 bg-orange-500 text-white hover:bg-orange-600 shadow-md hover:shadow-lg flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
-                  <span>Chỉnh sửa hồ sơ</span>
-                  <div className="w-6.5 h-6.5 bg-white/20 rounded-full flex items-center justify-center transition-all duration-300 group-hover:translate-x-0.5">
-                    <ChevronRight className="w-3.5 h-3.5 text-white" />
-                  </div>
-                </button>
+                <Link href="/settings" className="flex-1">
+                  <button className="w-full bg-orange-500 text-white hover:bg-orange-600 shadow-md hover:shadow-lg flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
+                    <span className="whitespace-nowrap">Chỉnh sửa hồ sơ</span>
+                    <div className="w-6.5 h-6.5 bg-white/20 rounded-full flex items-center justify-center transition-all duration-300 group-hover:translate-x-0.5">
+                      <ChevronRight className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  </button>
+                </Link>
                 
-                <button className="flex-1 border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
-                  <span>Chia sẻ hồ sơ</span>
+                <button 
+                  onClick={handleShareProfile}
+                  className="flex-1 border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer"
+                >
+                  <span className="whitespace-nowrap">Chia sẻ hồ sơ</span>
                   <div className="w-6.5 h-6.5 bg-secondary dark:bg-white/10 rounded-full flex items-center justify-center transition-all duration-300 group-hover:rotate-12">
                     <Share2 className="w-3.5 h-3.5 text-foreground/80" />
                   </div>

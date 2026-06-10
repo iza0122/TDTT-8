@@ -85,7 +85,8 @@ export default function HomePage() {
             user: {
               name: item.user?.full_name || "Người dùng",
               username: item.user?.username || `user_${item.reviewer_id}`,
-              avatar: item.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+              avatar: item.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+              is_following: item.user?.is_following || false
             },
             restaurant: {
               name: item.restaurant?.name || "Quán ăn ẩm thực",
