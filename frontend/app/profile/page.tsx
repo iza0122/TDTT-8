@@ -9,13 +9,35 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, token, loading, logout } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"posts" | "reels" | "saved" | "liked">("posts");
   const [profileStats, setProfileStats] = useState<any>(null);
+
+  const handleShareProfile = () => {
+    if (typeof window === "undefined" || !user) return;
+    const shareLink = `${window.location.origin}/profile/${user.id}`;
+    navigator.clipboard.writeText(shareLink);
+    toast({
+      title: "Đã sao chép liên kết 🔗",
+      description: "Đã copy link hồ sơ của bạn vào bộ nhớ tạm."
+    });
+  };
   const [isFetching, setIsFetching] = useState(true);
+  const [savedCount, setSavedCount] = useState(0);
+  const [savedVideosList, setSavedVideosList] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = JSON.parse(localStorage.getItem("saved_videos") || "[]");
+      setSavedCount(saved.length);
+      setSavedVideosList(saved);
+    }
+  }, [activeTab, profileStats]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -80,7 +102,6 @@ export default function ProfilePage() {
   const postsCount = profileStats?.posts_count ?? 0;
   const followersCount = profileStats?.followers_count ?? 0;
   const followingCount = profileStats?.following_count ?? 0;
-  const savedCount = profileStats?.saved_count ?? 0;
   const likesCount = profileStats?.likes_received_count ?? 0;
 
   return (
@@ -184,7 +205,10 @@ export default function ProfilePage() {
                   </div>
                 </button>
                 
-                <button className="flex-1 border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
+                <button 
+                  onClick={handleShareProfile}
+                  className="flex-1 border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer"
+                >
                   <span>Chia sẻ hồ sơ</span>
                   <div className="w-6.5 h-6.5 bg-secondary dark:bg-white/10 rounded-full flex items-center justify-center transition-all duration-300 group-hover:rotate-12">
                     <Share2 className="w-3.5 h-3.5 text-foreground/80" />
@@ -298,7 +322,7 @@ export default function ProfilePage() {
             } else if (activeTab === "reels") {
               displayedVideos = profileStats?.videos?.filter((video: any) => video.post_type === "video") || [];
             } else if (activeTab === "saved") {
-              displayedVideos = profileStats?.saved_videos || [];
+              displayedVideos = savedVideosList;
             } else if (activeTab === "liked") {
               displayedVideos = profileStats?.liked_videos || [];
             }

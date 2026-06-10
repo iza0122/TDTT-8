@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { formatRelativeTime } from "@/lib/time";
 import { Header } from "@/components/header";
 import { CategoryFilter } from "@/components/category-filter";
 import { FoodPost } from "@/components/food-post";
@@ -79,6 +80,11 @@ export default function HomePage() {
         });
         if (response.ok) {
           const data = await response.json();
+          let savedIds: string[] = [];
+          if (typeof window !== "undefined") {
+            const saved = JSON.parse(localStorage.getItem("saved_videos") || "[]");
+            savedIds = saved.map((v: any) => String(v.id));
+          }
           const mapped = data.items.map((item: any) => ({
             id: String(item.id),
             reviewerId: item.reviewer_id,
@@ -106,9 +112,9 @@ export default function HomePage() {
               avatar: item.reup_from_user.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
             } : null,
             saves: Math.floor(Math.random() * 12) + 3,
-            createdAt: "Vừa xong",
+            createdAt: formatRelativeTime(item.created_at),
             isLiked: item.is_liked || false,
-            isSaved: false
+            isSaved: savedIds.includes(String(item.id))
           }));
           setPostsList(mapped);
         }
@@ -180,7 +186,7 @@ export default function HomePage() {
               avatar: c.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
             },
             content: c.content,
-            createdAt: "Hôm nay",
+            createdAt: formatRelativeTime(c.created_at),
             likes: c.likes_count,
             replies: c.replies ? c.replies.map((r: any) => ({
               id: String(r.id),
@@ -191,7 +197,7 @@ export default function HomePage() {
                 avatar: r.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
               },
               content: r.content,
-              createdAt: "Hôm nay",
+              createdAt: formatRelativeTime(r.created_at),
               likes: r.likes_count
             })) : []
           }));
@@ -681,12 +687,33 @@ export default function HomePage() {
                 };
 
                 const handleSaveDetail = () => {
+                  const nextSaved = !activePost.isSaved;
                   setPostsList(prev => prev.map(p => {
                     if (p.id === activePost.id) {
-                      return { ...p, isSaved: !p.isSaved };
+                      return { ...p, isSaved: nextSaved };
                     }
                     return p;
                   }));
+                  if (typeof window !== "undefined") {
+                    let saved = JSON.parse(localStorage.getItem("saved_videos") || "[]");
+                    if (nextSaved) {
+                      const videoToSave = {
+                        id: activePost.id,
+                        title: activePost.caption || "",
+                        thumbnail_url: activePost.thumbnail || activePost.image,
+                        likes_count: activePost.likes,
+                        post_type: (activePost.image.endsWith(".mp4") || activePost.image.includes("video") || activePost.image.includes("mixkit.co")) ? "video" : "image",
+                        video_url: activePost.image,
+                        description: activePost.caption
+                      };
+                      if (!saved.some((v: any) => String(v.id) === String(activePost.id))) {
+                        saved.push(videoToSave);
+                      }
+                    } else {
+                      saved = saved.filter((v: any) => String(v.id) !== String(activePost.id));
+                    }
+                    localStorage.setItem("saved_videos", JSON.stringify(saved));
+                  }
                 };
 
                 const handleSendComment = async (e?: React.FormEvent) => {

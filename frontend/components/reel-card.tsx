@@ -45,10 +45,11 @@ interface ReelCardProps {
   onMuteToggle: () => void;
   onLikeToggle?: (isLiked: boolean, likesCount: number) => void;
   onShareUpdate?: (sharesCount: number) => void;
+  onFollowToggle?: (isFollowing: boolean) => void;
   onDelete?: () => void;
 }
 
-export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = false, isMuted, onMuteToggle, onLikeToggle, onShareUpdate, onDelete }: ReelCardProps) {
+export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = false, isMuted, onMuteToggle, onLikeToggle, onShareUpdate, onFollowToggle, onDelete }: ReelCardProps) {
   const { token, user } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [isLiked, setIsLiked] = useState(reel.isLiked || false);
@@ -141,7 +142,13 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
           "Authorization": `Bearer ${token}`
         }
       });
-      if (!res.ok) {
+      if (res.ok) {
+        const data = await res.json();
+        setIsFollowing(data.is_following);
+        if (onFollowToggle) {
+          onFollowToggle(data.is_following);
+        }
+      } else {
         setIsFollowing(previousFollowing); // Rollback on error
         const err = await res.json();
         alert(err.detail || "Không thể theo dõi.");

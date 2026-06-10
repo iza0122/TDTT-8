@@ -54,6 +54,10 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
   const { token, user } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(post.isSaved);
+
+  useEffect(() => {
+    setIsSaved(post.isSaved);
+  }, [post.isSaved]);
   const [shares, setShares] = useState(post.shares || 0);
   const isLikePending = useRef(false);
 
@@ -174,7 +178,28 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
   };
 
   const handleSave = () => {
-    setIsSaved(!isSaved);
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved);
+    if (typeof window !== "undefined") {
+      let saved = JSON.parse(localStorage.getItem("saved_videos") || "[]");
+      if (nextSaved) {
+        const videoToSave = {
+          id: post.id,
+          title: post.caption || "",
+          thumbnail_url: post.thumbnail || post.image,
+          likes_count: post.likes,
+          post_type: (post.image.endsWith(".mp4") || post.image.includes("video") || post.image.includes("mixkit.co")) ? "video" : "image",
+          video_url: post.image,
+          description: post.caption
+        };
+        if (!saved.some((v: any) => String(v.id) === String(post.id))) {
+          saved.push(videoToSave);
+        }
+      } else {
+        saved = saved.filter((v: any) => String(v.id) !== String(post.id));
+      }
+      localStorage.setItem("saved_videos", JSON.stringify(saved));
+    }
   };
 
 
