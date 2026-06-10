@@ -97,6 +97,7 @@ export default function HomePage() {
               category: item.restaurant?.category || "Món ăn"
             },
             image: item.video_url,
+            thumbnail: item.thumbnail_url,
             caption: item.description || item.title,
             likes: item.likes_count,
             comments: item.comments_count || 0,
@@ -1088,9 +1089,13 @@ export default function HomePage() {
                         }}
                       >
                         {/* Blurred ambient backdrop */}
-                        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-45 select-none">
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 select-none">
                           <Image
-                            src={activePost.image}
+                            src={
+                              (activePost.image.endsWith(".mp4") || activePost.image.includes("video") || activePost.image.includes("mixkit.co"))
+                                ? (activePost.thumbnail || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400")
+                                : activePost.image
+                            }
                             alt=""
                             fill
                             className="object-cover blur-2xl scale-110"
@@ -1098,21 +1103,39 @@ export default function HomePage() {
                           />
                         </div>
 
-                        {/* Foreground uncropped image */}
-                        <Image
-                          src={activePost.image}
-                          alt={activePost.caption}
-                          fill
-                          className="object-contain animate-fade-in"
-                          sizes="(max-width: 576px) 100vw, 576px"
-                          priority
-                          onLoad={(e) => {
-                            const img = e.target as HTMLImageElement;
-                            if (img.naturalWidth && img.naturalHeight) {
-                              setModalImageAspect(img.naturalWidth / img.naturalHeight);
-                            }
-                          }}
-                        />
+                        {/* Foreground uncropped image/video */}
+                        {(activePost.image.endsWith(".mp4") || activePost.image.includes("video") || activePost.image.includes("mixkit.co")) ? (
+                          <video
+                            src={activePost.image}
+                            poster={activePost.thumbnail}
+                            className="relative z-10 w-full h-full object-contain animate-fade-in"
+                            controls
+                            playsInline
+                            loop
+                            muted
+                            onLoadedMetadata={(e) => {
+                              const vid = e.target as HTMLVideoElement;
+                              if (vid.videoWidth && vid.videoHeight) {
+                                setModalImageAspect(vid.videoWidth / vid.videoHeight);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <Image
+                            src={activePost.image}
+                            alt={activePost.caption}
+                            fill
+                            className="object-contain animate-fade-in"
+                            sizes="(max-width: 576px) 100vw, 576px"
+                            priority
+                            onLoad={(e) => {
+                              const img = e.target as HTMLImageElement;
+                              if (img.naturalWidth && img.naturalHeight) {
+                                setModalImageAspect(img.naturalWidth / img.naturalHeight);
+                              }
+                            }}
+                          />
+                        )}
                       </div>
 
                       {/* Caption & Time */}

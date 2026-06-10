@@ -29,11 +29,18 @@ export default function MapPage() {
   const {
     restaurantsList,
     isFetchingRestaurants,
+    isLocationResolved,
     selectedRestaurant,
     activeCategory,
     setActiveCategory,
     searchQuery,
     setSearchQuery,
+    radius,
+    setRadius,
+    searchCenter,
+    userLocation,
+    isLocating,
+    getCurrentLocation,
     isPanelOpen,
     setIsPanelOpen,
     isClient,
@@ -70,6 +77,8 @@ export default function MapPage() {
             filteredRestaurants={filteredRestaurants}
             selectedRestaurant={selectedRestaurant}
             onSelectRestaurant={handleSelectRestaurant}
+            mapCenter={searchCenter}
+            userLocation={userLocation}
           />
         )}
       </div>
@@ -126,6 +135,34 @@ export default function MapPage() {
               )}
             </div>
 
+            {/* Bán kính quét / Radius Adjustment Pills */}
+            <div className="space-y-1.5 pt-0.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-wider">
+                  Bán kính quét: <span className="text-orange-500 font-black">{radius} km</span>
+                </label>
+              </div>
+              <div className="flex gap-1 bg-secondary/35 p-1 rounded-xl border border-border/30">
+                {[5, 10, 15, 20].map((value) => {
+                  const isActive = radius === value;
+                  return (
+                    <button
+                      key={`radius-${value}`}
+                      onClick={() => setRadius(value)}
+                      className={cn(
+                        "flex-1 text-[10px] font-bold py-1.5 rounded-lg transition-all duration-300 cursor-pointer text-center",
+                        isActive 
+                          ? "bg-orange-500 text-white shadow-xs font-black scale-102"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                      )}
+                    >
+                      {value} km
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Custom Category Pills */}
             <div className="-mx-4.5 -mb-4.5 px-0.5">
               <CategoryFilter activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
@@ -134,7 +171,7 @@ export default function MapPage() {
 
           {/* Restaurants vertical scroll area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
-            {isFetchingRestaurants ? (
+            {(isFetchingRestaurants || !isLocationResolved) ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
                   <div 
@@ -254,6 +291,22 @@ export default function MapPage() {
         </button>
       </Link>
 
+      {/* Floating Locate Me Button below the Home Button */}
+      <button
+        onClick={getCurrentLocation}
+        disabled={isLocating}
+        className={cn(
+          "flex w-10 h-10 rounded-full bg-card/80 backdrop-blur-xl border border-white/10 shadow-2xl items-center justify-center hover:bg-orange-500 hover:text-white hover:border-orange-500 active:scale-95 hover:scale-105 transition-all duration-300 text-foreground cursor-pointer z-20 absolute top-[120px] lg:top-[128px] ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+          isPanelOpen 
+            ? "left-[calc(100%-52px)] sm:left-[340px] lg:left-[412px]" 
+            : "left-4 lg:left-6"
+        )}
+        aria-label="Lấy vị trí hiện tại của tôi"
+      >
+        <Navigation className={cn("w-4.5 h-4.5", isLocating && "animate-spin text-orange-500")} />
+      </button>
+
+
       {/* Floating Selected Restaurant Detail overlay - OUTER SHELL (Double-Bezel Architecture) */}
       {selectedRestaurant && (
         <div 
@@ -317,6 +370,12 @@ export default function MapPage() {
               {/* Nested CTA Pill (Button-in-Button Architecture) */}
               <div className="flex gap-3 pt-2">
                 <Button 
+                  onClick={() => {
+                    if (selectedRestaurant?.lat && selectedRestaurant?.lng) {
+                      const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedRestaurant.lat},${selectedRestaurant.lng}`;
+                      window.open(url, "_blank");
+                    }
+                  }}
                   size="sm" 
                   className={cn(
                     "flex-1 text-xs font-extrabold rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md hover:shadow-lg active:scale-95 group transition-all duration-300",

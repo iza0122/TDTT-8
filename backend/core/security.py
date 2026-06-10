@@ -45,6 +45,14 @@ def get_current_user(
     try:
         decoded_token = auth.verify_id_token(token, clock_skew_seconds=10)
     except Exception as e:
+        # Kiểm tra lỗi hết hạn token để trả về thông báo thân thiện
+        err_msg = str(e).lower()
+        if "expired" in err_msg or "token expired" in err_msg:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token đã hết hạn, vui lòng đăng nhập lại."
+            )
+        # Các lỗi khác giữ nguyên thông báo gốc
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Xác thực Firebase Token thất bại: {str(e)}"
@@ -137,7 +145,11 @@ def get_current_user_optional(
         uid = decoded_token.get("uid")
         if uid:
             return db.query(User).filter(User.firebase_uid == uid).first()
-    except Exception:
+    except Exception as e:
+        # Nếu token đã hết hạn, trả về None để cho phép xử lý tùy chỉnh ở phía client
+        err_msg = str(e).lower()
+        if "expired" in err_msg or "token expired" in err_msg:
+            return None
+        # Các lỗi khác bỏ qua để trả về None (không gây 500)
         pass
     return None
-

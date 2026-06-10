@@ -26,6 +26,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Capture browser's native window.fetch once globally to prevent recursive stack overflows/memory leaks
+const nativeFetch = typeof window !== "undefined" ? window.fetch : null;
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -81,8 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Overriding window.fetch globally to intercept API requests and refresh expired tokens
   useEffect(() => {
-    const originalFetch = window.fetch;
-    
+    if (!nativeFetch) return;
+
     window.fetch = async (input, init) => {
       const storedToken = localStorage.getItem("token");
       const storedRefreshToken = localStorage.getItem("refresh_token");
@@ -104,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBRfhmp9BLcXtc2N2q4okE6TUyXihi18cc";
               
               // Request fresh token via Firebase Securetoken REST API
-              const response = await originalFetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
+              const response = await nativeFetch(`https://securetoken.googleapis.com/v1/token?key=${apiKey}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
                 body: new URLSearchParams({
@@ -188,11 +191,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      return originalFetch(input, init);
+      return nativeFetch(input, init);
     };
 
     return () => {
-      window.fetch = originalFetch;
+      window.fetch = nativeFetch;
     };
   }, [router, toast]);
 

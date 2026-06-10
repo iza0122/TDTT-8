@@ -4,10 +4,18 @@ import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { AuthProvider } from '@/hooks/use-auth'
 import { Toaster } from '@/components/ui/toaster'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
   title: 'FoodieGram - Khám phá quán ăn ngon',
@@ -38,7 +46,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="vi" className="bg-background" suppressHydrationWarning>
+    <html 
+      lang="vi" 
+      className={`${geistSans.variable} ${geistMono.variable} bg-background`} 
+      suppressHydrationWarning
+    >
       <body className="font-sans antialiased">
         <ThemeProvider
           attribute="class"

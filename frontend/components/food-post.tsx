@@ -27,6 +27,7 @@ interface FoodPostProps {
       category: string;
     };
     image: string;
+    thumbnail?: string;
     caption: string;
     likes: number;
     comments: number;
@@ -371,7 +372,11 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
           {/* Soft Radial Ambient Glow */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 select-none">
             <Image
-              src={post.image}
+              src={
+                (post.image.endsWith(".mp4") || post.image.includes("video") || post.image.includes("mixkit.co"))
+                  ? (post.thumbnail || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400")
+                  : post.image
+              }
               alt=""
               fill
               className="object-cover blur-2xl scale-110"
@@ -382,16 +387,28 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
           {/* Cinematic ambient spotlight halo layer */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-60 pointer-events-none" />
 
-          {/* Foreground uncropped image */}
-          <Image
-            src={post.image}
-            alt={post.caption}
-            fill
-            className="object-contain transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/post:scale-[1.02]"
-            sizes="(max-width: 512px) 100vw, 512px"
-            priority={priority}
-            loading={priority ? "eager" : "lazy"}
-          />
+          {/* Foreground uncropped image/video */}
+          {(post.image.endsWith(".mp4") || post.image.includes("video") || post.image.includes("mixkit.co")) ? (
+            <video
+              src={post.image}
+              poster={post.thumbnail}
+              className="relative z-10 w-full h-full object-contain transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/post:scale-[1.02]"
+              playsInline
+              loop
+              muted
+              autoPlay
+            />
+          ) : (
+            <Image
+              src={post.image}
+              alt={post.caption}
+              fill
+              className="object-contain transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/post:scale-[1.02]"
+              sizes="(max-width: 512px) 100vw, 512px"
+              priority={priority}
+              loading={priority ? "eager" : "lazy"}
+            />
+          )}
         </div>
 
         {/* Actions and Content */}

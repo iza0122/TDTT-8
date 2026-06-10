@@ -2,36 +2,88 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { searchMerchantsGeo, Restaurant } from "@/lib/services/merchant";
+import { toast } from "@/hooks/use-toast";
 
 export function useMapRestaurants() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [radius, setRadius] = useState(20.0);
+  const [searchCenter, setSearchCenter] = useState({ lat: 10.775, lng: 106.690 });
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [isLocationResolved, setIsLocationResolved] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [restaurantsList, setRestaurantsList] = useState<Restaurant[]>([]);
   const [isFetchingRestaurants, setIsFetchingRestaurants] = useState(false);
 
-  // Handle client-side detection to avoid SSR mismatches
+  // Retrieve user location using Geolocation API
+  const getCurrentLocation = useCallback(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      toast({
+        title: "Thiết bị không hỗ trợ định vị",
+        description: "Trình duyệt của bạn không hỗ trợ tính năng định vị GPS tự động.",
+        variant: "destructive",
+      });
+      setIsLocationResolved(true);
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const coords = { lat: latitude, lng: longitude };
+        setSearchCenter(coords);
+        setUserLocation(coords);
+        setIsLocating(false);
+        setIsLocationResolved(true);
+        
+        toast({
+          title: "Định vị thành công",
+          description: "Đã cập nhật bản đồ theo tọa độ hiện tại của bạn.",
+          variant: "success",
+          duration: 3000,
+        });
+      },
+      (error) => {
+        console.warn("Lỗi định vị hoặc bị từ chối quyền truy cập GPS:", error);
+        toast({
+          title: "Sử dụng vị trí mặc định",
+          description: "Không thể lấy GPS (đã từ chối hoặc hết hạn). Mặc định hiển thị trung tâm Quận 1, TP.HCM.",
+          duration: 6000,
+        });
+        setIsLocating(false);
+        setIsLocationResolved(true);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  }, []);
+
+  // Handle client-side detection and auto-trigger geolocation on startup
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      const timer = setTimeout(() => {
+        getCurrentLocation();
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setIsLocationResolved(true);
+    }
+  }, [getCurrentLocation]);
 
   // Fetch restaurants via the API service with query and category filters
   useEffect(() => {
-    if (!isClient) return;
+    if (!isClient || !isLocationResolved) return;
 
     const loadRestaurants = async () => {
       setIsFetchingRestaurants(true);
       try {
-        // Center coordinates placeholder (HCMC)
-        const lat = 10.775;
-        const lng = 106.690;
-        const radius = 15.0;
-
         const data = await searchMerchantsGeo({
-          lat,
-          lng,
+          lat: searchCenter.lat,
+          lng: searchCenter.lng,
           radius,
           q: searchQuery,
           category: activeCategory
@@ -51,7 +103,7 @@ export function useMapRestaurants() {
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [searchQuery, activeCategory, isClient]);
+  }, [searchQuery, activeCategory, radius, searchCenter, isLocationResolved, isClient]);
 
   // Handler for selecting a restaurant (e.g. from list or marker)
   const handleSelectRestaurant = useCallback((res: Restaurant | null) => {
@@ -64,12 +116,20 @@ export function useMapRestaurants() {
   return {
     restaurantsList,
     isFetchingRestaurants,
+    isLocationResolved,
     selectedRestaurant,
     setSelectedRestaurant,
     activeCategory,
     setActiveCategory,
     searchQuery,
     setSearchQuery,
+    radius,
+    setRadius,
+    searchCenter,
+    setSearchCenter,
+    userLocation,
+    isLocating,
+    getCurrentLocation,
     isPanelOpen,
     setIsPanelOpen,
     isClient,
