@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2, EyeOff, Copy, Repeat } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2, EyeOff, Copy, Repeat, Check } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ interface FoodPostProps {
       name: string;
       username: string;
       avatar: string;
+      is_following?: boolean;
     };
     restaurant: {
       name: string;
@@ -56,7 +57,38 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(post.isSaved);
   const [shares, setShares] = useState(post.shares || 0);
+  const [isFollowing, setIsFollowing] = useState(post.user.is_following || false);
   const isLikePending = useRef(false);
+
+  useEffect(() => {
+    setIsFollowing(post.user.is_following || false);
+  }, [post.user.is_following]);
+
+  const isMe = user && user.id === post.reviewerId;
+
+  const handleFollow = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!token) {
+      alert("Vui lòng đăng nhập để thực hiện chức năng này.");
+      return;
+    }
+    if (!post.reviewerId || isMe) return;
+
+    try {
+      const endpoint = `/api/interact/users/${post.reviewerId}/follow`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        setIsFollowing(true);
+      }
+    } catch (err) {
+      console.error("Lỗi khi theo dõi:", err);
+    }
+  };
 
   useEffect(() => {
     setShares(post.shares || 0);
@@ -233,12 +265,22 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
         {/* Header */}
         <div className="flex items-center justify-between p-4 relative border-b border-neutral-100/50 dark:border-neutral-900/50">
           <div className="flex items-center gap-3">
-            <Link href={post.reviewerId ? `/profile/${post.reviewerId}` : "/profile"}>
-              <Avatar className="w-10 h-10 ring-2 ring-orange-500/10 cursor-pointer">
-                <AvatarImage src={post.user.avatar} alt={post.user.name} />
-                <AvatarFallback>{post.user.name[0]}</AvatarFallback>
-              </Avatar>
-            </Link>
+            <div className="relative">
+              <Link href={post.reviewerId ? `/profile/${post.reviewerId}` : "/profile"}>
+                <Avatar className="w-10 h-10 ring-2 ring-orange-500/10 cursor-pointer">
+                  <AvatarImage src={post.user.avatar} alt={post.user.name} />
+                  <AvatarFallback>{post.user.name[0]}</AvatarFallback>
+                </Avatar>
+              </Link>
+              {!isMe && !isFollowing && (
+                <div 
+                  onClick={handleFollow}
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4.5 h-4.5 bg-[#fe2c55] hover:scale-110 active:scale-90 transition-all rounded-full flex items-center justify-center shadow-md cursor-pointer border border-white/20"
+                >
+                  <span className="text-white text-xs font-bold leading-none -mt-[1px]">+</span>
+                </div>
+              )}
+            </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Link href={post.reviewerId ? `/profile/${post.reviewerId}` : "/profile"} className="hover:underline cursor-pointer">
