@@ -58,6 +58,7 @@ class VideoResponse(BaseModel):
     created_at: datetime
     is_ads: Optional[bool] = False
     is_liked: Optional[bool] = False
+    is_saved: Optional[bool] = False
     
     # Các trường lồng nhau ánh xạ theo thiết kế của Frontend
     user: Optional[VideoUserResponse] = None
@@ -92,6 +93,7 @@ class VideoResponse(BaseModel):
             "created_at": data.created_at,
             "is_ads": getattr(data, "is_ads", False),
             "is_liked": getattr(data, "is_liked", False),
+            "is_saved": getattr(data, "is_saved", False),
         }
         
         if reviewer:

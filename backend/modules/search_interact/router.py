@@ -183,3 +183,18 @@ def share_post_endpoint(
     user_id = current_user.id if current_user else None
     return services.share_post(db=db, video_id=video_id, user_id=user_id)
 
+
+@router.post(
+    "/videos/{video_id}/save",
+    response_model=schemas.SaveToggleResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Lưu hoặc hủy lưu bài viết (Toggle Save)",
+    description="Lưu bài viết nếu chưa lưu, ngược lại thì hủy lưu. Yêu cầu đăng nhập."
+)
+def toggle_video_save(
+    video_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return services.toggle_save(db=db, video_id=video_id, user_id=current_user.id)
+

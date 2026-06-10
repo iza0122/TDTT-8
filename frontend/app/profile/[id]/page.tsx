@@ -130,13 +130,22 @@ export default function PublicProfilePage() {
     }
   };
 
-  const handleShareProfile = () => {
+  const handleShareProfile = async () => {
     if (typeof window === "undefined") return;
-    navigator.clipboard.writeText(window.location.href);
-    toast({
-      title: "Đã sao chép liên kết 🔗",
-      description: "Đã copy link hồ sơ reviewer này vào bộ nhớ tạm."
-    });
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: "Đã sao chép liên kết 🔗",
+        description: "Đã sao chép liên kết trang cá nhân!"
+      });
+    } catch (err) {
+      console.error("Lỗi khi sao chép liên kết trang cá nhân:", err);
+      toast({
+        title: "Thất bại ❌",
+        description: "Trình duyệt không cho phép sao chép tự động. Vui lòng copy URL trên thanh địa chỉ.",
+        variant: "destructive"
+      });
+    }
   };
 
   const formatNumber = (num: number) => {

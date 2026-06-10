@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+import { cn, formatTimeAgo } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 
 interface Comment {
@@ -239,7 +239,7 @@ export default function ReelsPage() {
               avatar: c.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
             },
             content: c.content,
-            createdAt: "Vừa xong",
+            createdAt: formatTimeAgo(c.created_at),
             likes: c.likes_count,
             replies: c.replies ? c.replies.map((r: any) => ({
               id: String(r.id),
@@ -250,7 +250,7 @@ export default function ReelsPage() {
                 avatar: r.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
               },
               content: r.content,
-              createdAt: "Vừa xong",
+              createdAt: formatTimeAgo(r.created_at),
               likes: r.likes_count
             })) : []
           }));
@@ -294,7 +294,7 @@ export default function ReelsPage() {
             avatar: user?.avatar_url || displayAvatar,
           },
           content: c.content,
-          createdAt: "Vừa xong",
+          createdAt: formatTimeAgo(c.created_at),
           likes: 0,
           replies: []
         };
@@ -551,6 +551,17 @@ export default function ReelsPage() {
                   setReelsList(prev => prev.map(r => {
                     if (r.id === reel.id) {
                       return { ...r, shares: sharesCount };
+                    }
+                    return r;
+                  }));
+                }}
+                onFollowToggle={(isFollowing) => {
+                  setReelsList(prev => prev.map(r => {
+                    if (r.reviewerId === reel.reviewerId) {
+                      return {
+                        ...r,
+                        user: { ...r.user, is_following: isFollowing }
+                      };
                     }
                     return r;
                   }));

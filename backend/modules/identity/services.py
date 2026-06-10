@@ -245,12 +245,13 @@ def get_user_profile(db: Session, user_id: int, current_user_id: Optional[int] =
     likes_received = sum(video.likes_count for video in user_videos)
 
     # 5. Lấy danh sách video đã thích từ bảng Likes
-    from backend.core.all_models import Like
+    from backend.core.all_models import Like, SavedPost
     liked_relations = db.query(Like).filter(Like.user_id == user_id).all()
     liked_videos = [relation.video for relation in liked_relations if relation.video]
 
-    # 6. Lấy danh sách video đã lưu (Lấy ngẫu nhiên vài video từ người khác để hiển thị)
-    saved_videos = db.query(Video).filter(Video.reviewer_id != user_id).limit(4).all()
+    # 6. Lấy danh sách video đã lưu từ bảng SavedPost
+    saved_relations = db.query(SavedPost).filter(SavedPost.user_id == user_id).all()
+    saved_videos = [relation.video for relation in saved_relations if relation.video]
     saved_count = len(saved_videos)
 
     # 7. Lấy danh sách video đã ẩn từ bảng HiddenVideo

@@ -184,13 +184,17 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
     # 1. Giải mã cursor
     cursor_data = decode_cursor(cursor)
     
-    # Lấy danh sách ID video đã thích và người dùng đã follow của user hiện tại
+    # Lấy danh sách ID video đã thích, đã lưu, và người dùng đã follow của user hiện tại
     liked_video_ids = set()
+    saved_video_ids = set()
     followed_user_ids = set()
     if current_user_id:
-        from backend.core.all_models import Like
+        from backend.core.all_models import Like, SavedPost
         likes = db.query(Like.video_id).filter(Like.user_id == current_user_id).all()
         liked_video_ids = {like[0] for like in likes}
+        
+        saves = db.query(SavedPost.video_id).filter(SavedPost.user_id == current_user_id).all()
+        saved_video_ids = {save[0] for save in saves}
         
         follows = db.query(UserFollow.following_id).filter(UserFollow.follower_id == current_user_id).all()
         followed_user_ids = {f[0] for f in follows}
@@ -244,6 +248,7 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
     
     for i, video in enumerate(organic_videos):
         video.is_liked = video.id in liked_video_ids
+        video.is_saved = video.id in saved_video_ids
         if video.reviewer:
             video.reviewer.is_following = video.reviewer_id in followed_user_ids
         mixed_items.append(video)
@@ -266,6 +271,8 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
                 "tagged_merchant_id": campaign.merchant_id,
                 "created_at": campaign.created_at,
                 "is_ads": True,
+                "is_liked": False,
+                "is_saved": False,
                 "user": {
                     "id": 0,
                     "full_name": campaign.merchant.name if campaign.merchant else "Được tài trợ",

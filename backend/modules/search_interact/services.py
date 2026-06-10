@@ -368,3 +368,34 @@ def share_post(db: Session, video_id: int, user_id: Optional[int] = None) -> dic
         "shares_count": video.shares_count,
         "message": "Đã chia sẻ bài viết."
     }
+
+
+def toggle_save(db: Session, video_id: int, user_id: int) -> dict:
+    from backend.core.all_models import SavedPost, Video
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bài viết/Video không tồn tại."
+        )
+
+    existing = db.query(SavedPost).filter(
+        SavedPost.user_id == user_id,
+        SavedPost.video_id == video_id
+    ).first()
+
+    if existing:
+        db.delete(existing)
+        db.commit()
+        return {
+            "saved": False,
+            "message": "Đã hủy lưu bài viết."
+        }
+    else:
+        new_save = SavedPost(user_id=user_id, video_id=video_id)
+        db.add(new_save)
+        db.commit()
+        return {
+            "saved": True,
+            "message": "Đã lưu bài viết."
+        }

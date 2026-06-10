@@ -6,8 +6,9 @@ import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, T
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatTimeAgo } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { CaptionText } from "@/components/caption-text";
 
 interface FoodPostProps {
@@ -48,10 +49,12 @@ interface FoodPostProps {
   onLikeToggle?: (isLiked: boolean, likesCount: number) => void;
   onShareUpdate?: (sharesCount: number) => void;
   onDelete?: () => void;
+  onSaveToggle?: (isSaved: boolean) => void;
 }
 
-export function FoodPost({ post, priority = false, onPostClick, onCommentClick, onLikeToggle, onShareUpdate, onDelete }: FoodPostProps) {
+export function FoodPost({ post, priority = false, onPostClick, onCommentClick, onLikeToggle, onShareUpdate, onDelete, onSaveToggle }: FoodPostProps) {
   const { token, user } = useAuth();
+  const { toast } = useToast();
   const [showMenu, setShowMenu] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(post.isSaved);
@@ -62,9 +65,17 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
     setShares(post.shares || 0);
   }, [post.shares]);
 
+  useEffect(() => {
+    setIsSaved(post.isSaved);
+  }, [post.isSaved]);
+
   const handleHidePost = async () => {
     if (!token) {
-      alert("Vui lòng đăng nhập để ẩn bài viết.");
+      toast({
+        title: "Thông báo",
+        description: "Vui lòng đăng nhập để ẩn bài viết.",
+        variant: "destructive"
+      });
       return;
     }
     if (!confirm("Bạn có chắc chắn muốn ẩn bài viết này không? Nó sẽ không hiển thị trên bảng tin của bạn nữa.")) return;
@@ -77,13 +88,20 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
         }
       });
       if (response.ok) {
-        alert("Đã ẩn bài viết.");
+        toast({
+          title: "Thành công",
+          description: "Đã ẩn bài viết.",
+        });
         if (onDelete) {
           onDelete(); // Xóa khỏi danh sách local feed
         }
       } else {
         const errData = await response.json();
-        alert(errData.detail || "Không thể ẩn bài viết.");
+        toast({
+          title: "Thất bại",
+          description: errData.detail || "Không thể ẩn bài viết.",
+          variant: "destructive"
+        });
       }
     } catch (err) {
       console.error("Lỗi khi ẩn bài viết:", err);
@@ -112,7 +130,10 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
       if (typeof window !== "undefined") {
         const shareLink = `${window.location.origin}/?post_id=${post.id}`;
         await navigator.clipboard.writeText(shareLink);
-        alert("Đã sao chép liên kết chia sẻ! 🔗");
+        toast({
+          title: "Thành công",
+          description: "Đã sao chép liên kết!",
+        });
       }
     } catch (err) {
       console.error("Lỗi khi chia sẻ:", err);
@@ -215,8 +236,43 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
     }
   };
 
-  const handleSave = () => {
-    setIsSaved(!isSaved);
+  const handleSave = async () => {
+    if (!token) {
+      toast({
+        title: "Thông báo",
+        description: "Vui lòng đăng nhập để lưu bài viết.",
+        variant: "destructive"
+      });
+      return;
+    }
+    try {
+      const res = await fetch(`/api/interact/videos/${post.id}/save`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsSaved(data.saved);
+        if (onSaveToggle) {
+          onSaveToggle(data.saved);
+        }
+        toast({
+          title: data.saved ? "Đã lưu bài viết 📌" : "Đã hủy lưu bài viết 🔓",
+          description: data.message,
+        });
+      } else {
+        const errData = await res.json();
+        toast({
+          title: "Thất bại",
+          description: errData.detail || "Không thể thực hiện hành động này.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error("Lỗi khi lưu/hủy lưu bài viết:", err);
+    }
   };
 
 
@@ -442,7 +498,7 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
           <CaptionText username={post.user.username} caption={post.caption} />
 
           {/* Time */}
-          <p className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-semibold">{post.createdAt}</p>
+          <p className="text-[9px] uppercase tracking-widest text-muted-foreground/50 font-semibold">{formatTimeAgo(post.createdAt)}</p>
         </div>
       </article>
     </div>
