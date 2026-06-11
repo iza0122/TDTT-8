@@ -48,6 +48,20 @@ try:
 except Exception:
     pass
 
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE videos ADD COLUMN comments_count INTEGER DEFAULT 0 NOT NULL"))
+        # Cập nhật số lượng bình luận hiện có cho các video đã tồn tại
+        conn.execute(text("""
+            UPDATE videos 
+            SET comments_count = (
+                SELECT COUNT(*) FROM comments WHERE comments.video_id = videos.id
+            )
+        """))
+        print("[MIGRATION] Đã tự động thêm cột comments_count vào bảng videos và đồng bộ dữ liệu.")
+except Exception:
+    pass
+
 app = FastAPI(
     title="Food Review API",
     description="Hệ thống Backend MVP cho mạng xã hội & Đánh giá ẩm thực Food Review",

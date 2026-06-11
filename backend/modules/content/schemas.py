@@ -85,7 +85,7 @@ class VideoResponse(BaseModel):
             "status": data.status,
             "likes_count": data.likes_count,
             "shares_count": getattr(data, "shares_count", 0),
-            "comments_count": len(getattr(data, "comments", [])) if hasattr(data, "comments") and getattr(data, "comments", []) else 0,
+            "comments_count": getattr(data, "comments_count", 0),
             "reviewer_id": data.reviewer_id,
             "tagged_merchant_id": data.tagged_merchant_id,
             "reup_from_id": getattr(data, "reup_from_id", None),

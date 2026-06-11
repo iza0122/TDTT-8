@@ -15,6 +15,7 @@ if sys.platform.startswith("win"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
+import backend.main
 from backend.core.database import SessionLocal
 from backend.core.all_models import Video, Like, Comment, Merchant, User, CommentLike
 from backend.modules.search_interact import services, schemas

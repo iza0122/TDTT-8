@@ -74,6 +74,10 @@ def create_comment(db: Session, video_id: int, user_id: int, comment_data: Comme
         parent_id=comment_data.parent_id
     )
     db.add(new_comment)
+    
+    # Tăng số lượng bình luận của video
+    video.comments_count = (video.comments_count or 0) + 1
+    
     db.commit()
     db.refresh(new_comment)
     return new_comment
@@ -240,6 +244,15 @@ def delete_comment(db: Session, comment_id: int, current_user) -> dict:
         )
 
     # 3. Thực hiện xóa bình luận (SQLite cascade tự động dọn comment_likes và replies con)
+    # Tìm video tương ứng để giảm số lượng bình luận
+    video = db.query(Video).filter(Video.id == comment.video_id).first()
+    if video:
+        # Đếm số lượng bình luận bị xóa (bình luận hiện tại và tất cả các phản hồi con)
+        comments_to_delete_count = db.query(Comment).filter(
+            (Comment.id == comment_id) | (Comment.parent_id == comment_id)
+        ).count()
+        video.comments_count = max(0, (video.comments_count or 0) - comments_to_delete_count)
+
     db.delete(comment)
     db.commit()
 

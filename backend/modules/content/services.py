@@ -2,7 +2,7 @@ import uuid
 import boto3
 from botocore.config import Config
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 
 from backend.core.config import settings
@@ -196,7 +196,11 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
         followed_user_ids = {f[0] for f in follows}
     
     # 2. Truy vấn video thường (organic)
-    query = db.query(Video)
+    query = db.query(Video).options(
+        joinedload(Video.reviewer),
+        joinedload(Video.tagged_merchant),
+        joinedload(Video.reup_from).joinedload(Video.reviewer)
+    )
     if post_type:
         query = query.filter(Video.post_type == post_type)
         
@@ -235,7 +239,7 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
         next_cursor = None
         
     # 4. Lấy các chiến dịch quảng cáo (Ads) đang hoạt động
-    active_campaigns = db.query(Campaign).filter(Campaign.is_active == True).all()
+    active_campaigns = db.query(Campaign).options(joinedload(Campaign.merchant)).filter(Campaign.is_active == True).all()
     
     # 5. Trộn Feed theo tỷ lệ 4 thường : 1 quảng cáo
     mixed_items = []
