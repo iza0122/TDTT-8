@@ -19,7 +19,8 @@ import {
   Bookmark, 
   Search, 
   Plus, 
-  Minus 
+  Minus,
+  Navigation
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -214,16 +215,18 @@ export default function MerchantPage() {
               </Link>
             </div>
             <div className="flex gap-4 pt-4">
-              <Button className="px-6 py-3 rounded-full text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors active:scale-95 group">
-                Đặt hàng ngay
-                <span className="ml-2 w-7 h-7 rounded-full bg-black/10 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
-                  <ChevronRight className="w-4 h-4" />
-                </span>
-              </Button>
-              <Button variant="outline" className="px-6 py-3 rounded-full text-sm font-bold border-white/30 text-white hover:bg-white/10 hover:text-white transition-colors active:scale-95 group">
-                Đặt bàn
-                <span className="ml-2 w-7 h-7 rounded-full bg-white/10 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
-                  <ChevronRight className="w-4 h-4 text-white" />
+              <Button 
+                onClick={() => {
+                  if (merchant.lat && merchant.lng) {
+                    const url = `https://www.google.com/maps/dir/?api=1&destination=${merchant.lat},${merchant.lng}`;
+                    window.open(url, "_blank");
+                  }
+                }}
+                className="px-6 py-3 rounded-full text-sm font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors active:scale-95 group flex items-center"
+              >
+                <span>Chỉ đường</span>
+                <span className="ml-2 w-7 h-7 rounded-full bg-white/20 flex items-center justify-center group-hover:translate-x-1 group-hover:-translate-y-[1px] transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+                  <Navigation className="w-3.5 h-3.5 fill-white text-white" />
                 </span>
               </Button>
             </div>
