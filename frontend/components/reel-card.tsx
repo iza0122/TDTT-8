@@ -2,7 +2,7 @@
  
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Heart, MessageCircle, Share2, Music2, Play, Pause, MapPin, MoreVertical, Volume2, VolumeX, Trash2, EyeOff, Copy, Repeat, Check } from "lucide-react";
+import { Heart, MessageCircle, Share2, Music2, Play, Pause, MapPin, MoreVertical, Volume2, VolumeX, Trash2, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,6 @@ interface ReelCardProps {
 export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = false, isMuted, onMuteToggle, onLikeToggle, onShareUpdate, onDelete }: ReelCardProps) {
   const { token, user } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
   const [isLiked, setIsLiked] = useState(reel.isLiked || false);
   const [likes, setLikes] = useState(reel.likes);
   const [isPlaying, setIsPlaying] = useState(isActive);
@@ -149,7 +148,6 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
 
   const handleCopyLinkShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowShareMenu(false);
     try {
       const headers: Record<string, string> = {};
       if (token) {
@@ -174,47 +172,6 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
       }
     } catch (err) {
       console.error("Lỗi khi sao chép liên kết chia sẻ:", err);
-    }
-  };
-
-  const handleReupPost = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowShareMenu(false);
-    if (!token) {
-      alert("Vui lòng đăng nhập để chia sẻ lại video lên bảng tin.");
-      return;
-    }
-
-    if (!confirm("Bạn có chắc muốn chia sẻ lại video này lên bảng tin của mình không?")) return;
-
-    try {
-      const res = await fetch(`/api/content/videos/${reel.id}/reup`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        alert("Đã chia sẻ lại video lên bảng tin của bạn! 🔁");
-        
-        // Trigger share count update in DB and locally
-        const shareRes = await fetch(`/api/interact/videos/${reel.id}/share`, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (shareRes.ok) {
-          const shareData = await shareRes.json();
-          setShares(shareData.shares_count);
-          if (onShareUpdate) {
-            onShareUpdate(shareData.shares_count);
-          }
-        }
-      } else {
-        const err = await res.json();
-        alert(err.detail || "Không thể chia sẻ lại video.");
-      }
-    } catch (err) {
-      console.error("Lỗi khi chia sẻ lại:", err);
     }
   };
 
@@ -430,50 +387,17 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
           {/* Share */}
           <div className="relative flex flex-col items-center group">
             <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowShareMenu(!showShareMenu);
-              }} 
+              onClick={handleCopyLinkShare} 
               className="flex flex-col items-center gap-1 cursor-pointer"
             >
               <div className={cn(
                 "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-lg backdrop-blur-md",
-                showShareMenu
-                  ? "bg-orange-500 border border-orange-500 text-white"
-                  : "bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500"
+                "bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500"
               )}>
                 <Share2 className="w-5 h-5 transition-all duration-300" />
               </div>
               <span className="text-white md:text-neutral-800 dark:md:text-white text-[10px] font-extrabold tracking-wide drop-shadow-sm">{formatNumber(shares)}</span>
             </button>
-            
-            {showShareMenu && (
-              <>
-                <div 
-                  className="fixed inset-0 z-30" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowShareMenu(false);
-                  }}
-                />
-                <div className="absolute right-12 bottom-0 w-44 bg-card border border-border/80 rounded-xl shadow-lg py-1.5 z-40 animate-in fade-in slide-in-from-right-1 duration-150 space-y-1">
-                  <button
-                    onClick={handleCopyLinkShare}
-                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>Sao chép liên kết</span>
-                  </button>
-                  <button
-                    onClick={handleReupPost}
-                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer border-t border-border/10 pt-1"
-                  >
-                    <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>Chia sẻ lên bảng tin</span>
-                  </button>
-                </div>
-              </>
-            )}
           </div>
 
           {/* Mute/Unmute sound option */}

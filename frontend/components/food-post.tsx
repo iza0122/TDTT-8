@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2, EyeOff, Copy, Repeat, Check } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,6 @@ interface FoodPostProps {
 export function FoodPost({ post, priority = false, onPostClick, onCommentClick, onLikeToggle, onShareUpdate, onDelete }: FoodPostProps) {
   const { token, user } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(post.isSaved);
   const [shares, setShares] = useState(post.shares || 0);
   const [isFollowing, setIsFollowing] = useState(post.user.is_following || false);
@@ -123,7 +122,6 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
   };
 
   const handleCopyLinkShare = async () => {
-    setShowShareMenu(false);
     try {
       const headers: Record<string, string> = {};
       if (token) {
@@ -148,46 +146,6 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
       }
     } catch (err) {
       console.error("Lỗi khi chia sẻ:", err);
-    }
-  };
-
-  const handleReupPost = async () => {
-    setShowShareMenu(false);
-    if (!token) {
-      alert("Vui lòng đăng nhập để chia sẻ lại bài viết lên bảng tin.");
-      return;
-    }
-    
-    if (!confirm("Bạn có chắc muốn chia sẻ lại bài viết này lên bảng tin của mình không?")) return;
-
-    try {
-      const res = await fetch(`/api/content/videos/${post.id}/reup`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        alert("Đã chia sẻ lại bài viết lên bảng tin của bạn! 🔁");
-        
-        // Trigger share count update in DB and locally
-        const shareRes = await fetch(`/api/interact/videos/${post.id}/share`, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (shareRes.ok) {
-          const shareData = await shareRes.json();
-          setShares(shareData.shares_count);
-          if (onShareUpdate) {
-            onShareUpdate(shareData.shares_count);
-          }
-        }
-      } else {
-        const err = await res.json();
-        alert(err.detail || "Không thể chia sẻ lại bài viết.");
-      }
-    } catch (err) {
-      console.error("Lỗi khi chia sẻ lại:", err);
     }
   };
 
@@ -428,40 +386,14 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
               
               <div className="relative">
                 <button 
-                  onClick={() => setShowShareMenu(!showShareMenu)} 
+                  onClick={handleCopyLinkShare} 
                   className={cn(
-                    "flex items-center gap-1.5 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-blue-500 group/share",
-                    showShareMenu && "text-blue-500 scale-105"
+                    "flex items-center gap-1.5 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-blue-500 group/share"
                   )}
                 >
                   <Share2 className="w-5 h-5 stroke-[1.5] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/share:stroke-blue-500 group-hover/share:scale-105" />
                   <span className="text-xs font-bold tracking-wide">{formatNumber(shares)}</span>
                 </button>
-                
-                {showShareMenu && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-30" 
-                      onClick={() => setShowShareMenu(false)}
-                    />
-                    <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-800/60 rounded-2xl shadow-xl py-1.5 z-40 animate-in fade-in slide-in-from-top-1 duration-150 space-y-1">
-                      <button
-                        onClick={handleCopyLinkShare}
-                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer"
-                      >
-                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span>Sao chép liên kết</span>
-                      </button>
-                      <button
-                        onClick={handleReupPost}
-                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer border-t border-border/10 pt-1"
-                      >
-                        <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span>Chia sẻ lên bảng tin</span>
-                      </button>
-                    </div>
-                  </>
-                )}
               </div>
             </div>
             
