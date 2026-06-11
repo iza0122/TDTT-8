@@ -48,11 +48,10 @@ export function useMapRestaurants() {
         });
       },
       (error) => {
-        console.warn("Lỗi định vị hoặc bị từ chối quyền truy cập GPS:", error.message || error);
+        console.warn("Lỗi định vị hoặc bị từ chối quyền truy cập GPS:", error);
         toast({
           title: "Sử dụng vị trí mặc định",
           description: "Không thể lấy GPS (đã từ chối hoặc hết hạn). Mặc định hiển thị trung tâm Quận 1, TP.HCM.",
-          variant: "warning",
           duration: 6000,
         });
         setIsLocating(false);

@@ -37,8 +37,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
 
-  const publicPaths = ["/", "/reels", "/map", "/merchant", "/login", "/register", "/forgot-password", "/terms", "/privacy"];
-  const isPublicPath = publicPaths.includes(pathname || "");
+  const publicPaths = ["/", "/reels", "/map", "/login", "/register", "/forgot-password", "/terms", "/privacy"];
+  
+  const isMerchantDashboardPath = [
+    "/merchant",
+    "/merchant/menu",
+    "/merchant/profile",
+    "/merchant/promotions",
+    "/merchant/reviews",
+    "/merchant/settings",
+    "/merchant/add-restaurant"
+  ].some(path => (pathname || "").startsWith(path));
+
+  const isPublicPath = publicPaths.includes(pathname || "") || ((pathname || "").startsWith("/merchant/") && !isMerchantDashboardPath);
 
   useEffect(() => {
     // Load state from localStorage on mount

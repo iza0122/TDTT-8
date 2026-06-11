@@ -29,6 +29,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { cn } from "@/lib/utils";
+import { Header } from "@/components/header";
 
 // Placeholder data (will be replaced with actual API calls)
 const mockMerchantData = {
@@ -168,6 +169,7 @@ export default function MerchantPage() {
 
   return (
     <div className="min-h-screen bg-background font-sans select-none antialiased">
+      <Header />
       {/* Custom Spring Kinetics CSS injected via Style Block */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes slideUp {
