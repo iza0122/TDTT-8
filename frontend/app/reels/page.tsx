@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ReelCard } from "@/components/reel-card";
 import { Home, Camera, MessageCircle, Send, Heart, Smile, Music2, MapPin, X, ChevronRight, Bookmark, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ const quickEmojis = ["🤤", "😍", "🔥", "👏", "💯"];
 
 export default function ReelsPage() {
   const { user, token } = useAuth();
+  const router = useRouter();
   const displayName = user?.full_name || "Khách";
   const displayUsername = user?.email ? user.email.split('@')[0] : "guest";
   const displayAvatar = user?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
