@@ -120,7 +120,7 @@ export function MapView({
 
     // Render new markers
     filteredRestaurants.forEach((res) => {
-      if (!res.lng || !res.lat) return;
+      if (!res.longitude || !res.latitude) return;
 
       // Create a premium custom marker wrapper element
       const el = document.createElement("div");
@@ -143,13 +143,13 @@ export function MapView({
         </div>
         <div class="marker-label">
           <span class="restaurant-name">${res.name}</span>
-          <span class="restaurant-rating">★ ${res.rating}</span>
+          <span class="restaurant-rating">★ ${res.rating_avg}</span>
         </div>
       `;
 
       // Set up Mapbox Marker
       const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([res.lng, res.lat])
+        .setLngLat([res.longitude, res.latitude])
         .addTo(map);
 
       // Marker click event to select restaurant
@@ -166,8 +166,8 @@ export function MapView({
       const bounds = new mapboxgl.LngLatBounds();
       
       filteredRestaurants.forEach((res) => {
-        if (res.lng && res.lat) {
-          bounds.extend([res.lng, res.lat]);
+        if (res.longitude && res.latitude) {
+          bounds.extend([res.longitude, res.latitude]);
         }
       });
 
@@ -219,7 +219,7 @@ export function MapView({
 
     // Center map smoothly with offset padding
     map.easeTo({
-      center: [selectedRestaurant.lng, selectedRestaurant.lat],
+      center: [selectedRestaurant.longitude, selectedRestaurant.latitude],
       zoom: 15.5,
       duration: 1000,
       padding: { left: paddingLeft, right: 0, top: 0, bottom: paddingBottom }
