@@ -32,7 +32,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
 
-export function Header() {
+interface HeaderProps {
+  className?: string;
+  maxWidthClassName?: string;
+}
+
+export function Header({ className, maxWidthClassName = "max-w-lg" }: HeaderProps = {}) {
   const { user, logout } = useAuth();
 
   const displayName = user?.full_name || "Khách";
@@ -41,7 +46,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-sm border-b border-border">
-      <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
+      <div className={`${maxWidthClassName} mx-auto flex items-center justify-between px-4 py-3 ${className || ""}`}>
         <div className="flex items-center gap-2">
           <Sheet>
             <SheetTrigger asChild>

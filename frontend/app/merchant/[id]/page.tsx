@@ -170,7 +170,7 @@ export default function MerchantPage() {
 
   return (
     <div className="min-h-screen bg-background font-sans select-none antialiased">
-      <Header />
+      <Header maxWidthClassName="max-w-7xl px-4 md:px-8" />
       {/* Custom Spring Kinetics CSS injected via Style Block */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes slideUp {
