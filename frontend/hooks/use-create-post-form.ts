@@ -92,6 +92,21 @@ function generateVideoThumbnail(file: File): Promise<Blob> {
   });
 }
 
+const formatErrorDetail = (detail: any, defaultMsg: string): string => {
+  if (!detail) return defaultMsg;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((err: any) => {
+        if (typeof err === "string") return err;
+        const loc = err.loc ? err.loc.join(".") : "";
+        return loc ? `${loc}: ${err.msg || JSON.stringify(err)}` : (err.msg || JSON.stringify(err));
+      })
+      .join(", ");
+  }
+  return typeof detail === "object" ? JSON.stringify(detail) : String(detail);
+};
+
 export function useCreatePostForm() {
   const router = useRouter();
   const { toast } = useToast();
@@ -329,7 +344,7 @@ export function useCreatePostForm() {
 
       if (!presignedRes.ok) {
         const errorData = await presignedRes.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Không thể khởi tạo link tải lên Cloudflare R2.");
+        throw new Error(formatErrorDetail(errorData.detail, "Không thể khởi tạo link tải lên Cloudflare R2."));
       }
 
       const { upload_url, public_url } = await presignedRes.json();
@@ -386,7 +401,7 @@ export function useCreatePostForm() {
 
       if (!metadataRes.ok) {
         const errorData = await metadataRes.json().catch(() => ({}));
-        throw new Error(errorData.detail || "Lưu siêu dữ liệu bài đăng vào Database thất bại.");
+        throw new Error(formatErrorDetail(errorData.detail, "Lưu siêu dữ liệu bài đăng vào Database thất bại."));
       }
 
       const responseData = await metadataRes.json();

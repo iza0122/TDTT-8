@@ -341,7 +341,7 @@ export default function MerchantProfilePage() {
   }
 
   if (error && error !== "No merchant found for this user.") {
-    return <div className="min-h-screen flex items-center justify-center text-red-500">Lỗi: {error}</div>;
+    return <div className="min-h-screen flex items-center justify-center text-red-500">Lỗi: {typeof error === 'object' ? JSON.stringify(error) : String(error)}</div>;
   }
 
   if (!merchant) {

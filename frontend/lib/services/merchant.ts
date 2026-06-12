@@ -75,6 +75,44 @@ export function mapRawMerchantToRestaurant(item: any): Restaurant {
   };
 }
 
+async function handleResponseError(response: Response, fallbackMessage: string): Promise<never> {
+  let errorDetail: any = fallbackMessage;
+  try {
+    const errorData = await response.json();
+    if (errorData && errorData.detail) {
+      errorDetail = errorData.detail;
+    } else if (errorData && errorData.message) {
+      errorDetail = errorData.message;
+    } else if (errorData && errorData.error) {
+      errorDetail = errorData.error;
+    }
+  } catch (e) {
+    try {
+      const text = await response.text();
+      if (text) {
+        errorDetail = text;
+      }
+    } catch (_) {}
+  }
+
+  if (typeof errorDetail === "string") {
+    throw new Error(errorDetail);
+  } else if (Array.isArray(errorDetail)) {
+    const formatted = errorDetail
+      .map((err: any) => {
+        if (typeof err === "string") return err;
+        const loc = err.loc ? err.loc.join(".") : "";
+        return loc ? `${loc}: ${err.msg || JSON.stringify(err)}` : (err.msg || JSON.stringify(err));
+      })
+      .join(", ");
+    throw new Error(formatted || fallbackMessage);
+  } else if (typeof errorDetail === "object" && errorDetail !== null) {
+    throw new Error(JSON.stringify(errorDetail));
+  } else {
+    throw new Error(String(errorDetail) || fallbackMessage);
+  }
+}
+
 export async function createMerchant(token: string, merchantData: MerchantCreatePayload): Promise<MerchantResponse> {
   const response = await fetch("/api/merchant", {
     method: "POST",
@@ -86,8 +124,7 @@ export async function createMerchant(token: string, merchantData: MerchantCreate
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create merchant.");
+    await handleResponseError(response, "Failed to create merchant.");
   }
 
   return response.json();
@@ -138,8 +175,7 @@ export async function getMerchantsByOwner(token: string): Promise<MerchantRespon
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to fetch merchants by owner.");
+    await handleResponseError(response, "Failed to fetch merchants by owner.");
   }
 
   const data = await response.json();
@@ -160,8 +196,7 @@ export async function updateMerchant(merchantId: number, token: string, merchant
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update merchant.");
+    await handleResponseError(response, "Failed to update merchant.");
   }
 
   return response.json();
@@ -176,8 +211,7 @@ export async function getMerchant(id: number): Promise<MerchantResponse & { menu
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to fetch merchant details.");
+    await handleResponseError(response, "Failed to fetch merchant details.");
   }
 
   return response.json();
@@ -198,8 +232,7 @@ export async function addMenuItem(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to add menu item.");
+    await handleResponseError(response, "Failed to add menu item.");
   }
 
   return response.json();
@@ -221,8 +254,7 @@ export async function updateMenuItem(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update menu item.");
+    await handleResponseError(response, "Failed to update menu item.");
   }
 
   return response.json();
@@ -242,8 +274,7 @@ export async function deleteMenuItem(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to delete menu item.");
+    await handleResponseError(response, "Failed to delete menu item.");
   }
 
   return response.json();
@@ -267,8 +298,7 @@ export async function getMerchantStats(merchantId: number, token: string): Promi
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to fetch merchant statistics.");
+    await handleResponseError(response, "Failed to fetch merchant statistics.");
   }
 
   return response.json();
@@ -309,8 +339,7 @@ export async function getCampaigns(merchantId: number, token: string): Promise<C
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to fetch campaigns.");
+    await handleResponseError(response, "Failed to fetch campaigns.");
   }
 
   return response.json();
@@ -331,8 +360,7 @@ export async function createCampaign(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to create campaign.");
+    await handleResponseError(response, "Failed to create campaign.");
   }
 
   return response.json();
@@ -354,8 +382,7 @@ export async function updateCampaign(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to update campaign.");
+    await handleResponseError(response, "Failed to update campaign.");
   }
 
   return response.json();
@@ -375,8 +402,7 @@ export async function deleteCampaign(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to delete campaign.");
+    await handleResponseError(response, "Failed to delete campaign.");
   }
 
   return response.json();
@@ -392,8 +418,7 @@ export async function getReviews(merchantId: number, token: string): Promise<Rev
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to fetch reviews.");
+    await handleResponseError(response, "Failed to fetch reviews.");
   }
 
   return response.json();
@@ -415,8 +440,7 @@ export async function respondToReview(
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to respond to review.");
+    await handleResponseError(response, "Failed to respond to review.");
   }
 
   return response.json();
@@ -432,8 +456,7 @@ export async function deleteMerchant(merchantId: number, token: string): Promise
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Lỗi khi xóa quán ăn.");
+    await handleResponseError(response, "Lỗi khi xóa quán ăn.");
   }
 
   return response.json();

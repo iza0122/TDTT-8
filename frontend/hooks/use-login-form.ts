@@ -38,7 +38,7 @@ export function useLoginForm() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, loginRole: "reviewer" | "merchant" = "reviewer") => {
     e.preventDefault();
     setError(null);
     setFieldErrors({});
@@ -100,6 +100,10 @@ export function useLoginForm() {
         }
       }
 
+      if (loginRole === "merchant" && data.user?.role !== "merchant" && data.user?.role !== "admin") {
+        throw new Error("Tài khoản của bạn không phải là tài khoản Đối tác (Merchant).");
+      }
+
       login(data.access_token, data.user, data.refresh_token);
 
       toast({
@@ -120,7 +124,7 @@ export function useLoginForm() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (loginRole: "reviewer" | "merchant" = "reviewer") => {
     setIsLoading(true);
     setError(null);
     setFieldErrors({});
@@ -144,6 +148,10 @@ export function useLoginForm() {
 
       if (!response.ok) {
         throw new Error(data.detail || "Đồng bộ tài khoản Google thất bại.");
+      }
+
+      if (loginRole === "merchant" && data.user?.role !== "merchant" && data.user?.role !== "admin") {
+        throw new Error("Tài khoản của bạn không phải là tài khoản Đối tác (Merchant).");
       }
 
       login(data.access_token, data.user, data.refresh_token || result.user.refreshToken);
