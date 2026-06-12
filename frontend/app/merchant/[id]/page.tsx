@@ -85,11 +85,17 @@ export default function MerchantPage() {
 
   useEffect(() => {
     if (!id) return;
+    const merchantId = Number(id);
+    if (isNaN(merchantId)) {
+      setError("Mã quán ăn không hợp lệ.");
+      setIsLoading(false);
+      return;
+    }
     const fetchMerchantData = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const data = await getMerchant(Number(id));
+        const data = await getMerchant(merchantId);
         setMerchant(mapRawMerchantToDetails(data));
       } catch (err: any) {
         console.error("Error fetching merchant:", err);

@@ -113,6 +113,12 @@ async function handleResponseError(response: Response, fallbackMessage: string):
   }
 }
 
+function validateId(id: any, name: string = "ID"): void {
+  if (id === undefined || id === null || isNaN(Number(id))) {
+    throw new Error(`Mã ${name} không hợp lệ.`);
+  }
+}
+
 export async function createMerchant(token: string, merchantData: MerchantCreatePayload): Promise<MerchantResponse> {
   const response = await fetch("/api/merchant", {
     method: "POST",
@@ -186,6 +192,7 @@ export async function getMerchantsByOwner(token: string): Promise<MerchantRespon
 }
 
 export async function updateMerchant(merchantId: number, token: string, merchantData: MerchantUpdatePayload): Promise<MerchantResponse> {
+  validateId(merchantId, "nhà hàng");
   const response = await fetch(`/api/merchant/${merchantId}`, {
     method: "PATCH",
     headers: {
@@ -203,6 +210,7 @@ export async function updateMerchant(merchantId: number, token: string, merchant
 }
 
 export async function getMerchant(id: number): Promise<MerchantResponse & { menus: any[]; reviews?: ReviewResponse[]; campaigns?: CampaignResponse[] }> {
+  validateId(id, "nhà hàng");
   const response = await fetch(`/api/merchant/${id}`, {
     method: "GET",
     headers: {
@@ -222,6 +230,7 @@ export async function addMenuItem(
   token: string,
   itemData: { dish_name: string; price: number; is_available?: boolean }
 ): Promise<any> {
+  validateId(merchantId, "nhà hàng");
   const response = await fetch(`/api/merchant/${merchantId}/menus`, {
     method: "POST",
     headers: {
@@ -244,6 +253,8 @@ export async function updateMenuItem(
   token: string,
   itemData: { dish_name?: string; price?: number; is_available?: boolean }
 ): Promise<any> {
+  validateId(merchantId, "nhà hàng");
+  validateId(menuId, "món ăn");
   const response = await fetch(`/api/merchant/${merchantId}/menus/${menuId}`, {
     method: "PATCH",
     headers: {
@@ -265,6 +276,8 @@ export async function deleteMenuItem(
   menuId: number,
   token: string
 ): Promise<any> {
+  validateId(merchantId, "nhà hàng");
+  validateId(menuId, "món ăn");
   const response = await fetch(`/api/merchant/${merchantId}/menus/${menuId}`, {
     method: "DELETE",
     headers: {
@@ -289,6 +302,7 @@ export interface MerchantStats {
 }
 
 export async function getMerchantStats(merchantId: number, token: string): Promise<MerchantStats> {
+  validateId(merchantId, "nhà hàng");
   const response = await fetch(`/api/merchant/${merchantId}/stats`, {
     method: "GET",
     headers: {
@@ -330,6 +344,7 @@ export interface ReviewResponse {
 }
 
 export async function getCampaigns(merchantId: number, token: string): Promise<CampaignResponse[]> {
+  validateId(merchantId, "nhà hàng");
   const response = await fetch(`/api/merchant/${merchantId}/campaigns`, {
     method: "GET",
     headers: {
@@ -350,6 +365,7 @@ export async function createCampaign(
   token: string,
   payload: { title: string; description?: string; video_url?: string; is_active?: boolean; start_date?: string | null; end_date?: string | null }
 ): Promise<CampaignResponse> {
+  validateId(merchantId, "nhà hàng");
   const response = await fetch(`/api/merchant/${merchantId}/campaigns`, {
     method: "POST",
     headers: {
@@ -372,6 +388,8 @@ export async function updateCampaign(
   token: string,
   payload: { title?: string; description?: string; video_url?: string; is_active?: boolean; start_date?: string | null; end_date?: string | null }
 ): Promise<CampaignResponse> {
+  validateId(merchantId, "nhà hàng");
+  validateId(campaignId, "chiến dịch");
   const response = await fetch(`/api/merchant/${merchantId}/campaigns/${campaignId}`, {
     method: "PATCH",
     headers: {
@@ -393,6 +411,8 @@ export async function deleteCampaign(
   campaignId: number,
   token: string
 ): Promise<any> {
+  validateId(merchantId, "nhà hàng");
+  validateId(campaignId, "chiến dịch");
   const response = await fetch(`/api/merchant/${merchantId}/campaigns/${campaignId}`, {
     method: "DELETE",
     headers: {
@@ -409,6 +429,7 @@ export async function deleteCampaign(
 }
 
 export async function getReviews(merchantId: number, token: string): Promise<ReviewResponse[]> {
+  validateId(merchantId, "nhà hàng");
   const response = await fetch(`/api/merchant/${merchantId}/reviews`, {
     method: "GET",
     headers: {
@@ -430,6 +451,8 @@ export async function respondToReview(
   token: string,
   responseText: string
 ): Promise<ReviewResponse> {
+  validateId(merchantId, "nhà hàng");
+  validateId(reviewId, "đánh giá");
   const response = await fetch(`/api/merchant/${merchantId}/reviews/${reviewId}/response`, {
     method: "POST",
     headers: {
@@ -447,6 +470,7 @@ export async function respondToReview(
 }
 
 export async function deleteMerchant(merchantId: number, token: string): Promise<any> {
+  validateId(merchantId, "nhà hàng");
   const response = await fetch(`/api/merchant/${merchantId}`, {
     method: "DELETE",
     headers: {
