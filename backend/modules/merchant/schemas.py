@@ -12,6 +12,7 @@ class MenuCreate(BaseModel):
     is_available: bool = True
     description: Optional[str] = None
     image_url: Optional[str] = None
+    category: Optional[str] = "Món ăn"
 
 class MenuResponse(MenuCreate):
     id: int
@@ -25,6 +26,7 @@ class MenuUpdate(BaseModel):
     is_available: Optional[bool] = None
     description: Optional[str] = None
     image_url: Optional[str] = None
+    category: Optional[str] = None
 
 class MerchantCreate(BaseModel):
     name: str
@@ -34,6 +36,10 @@ class MerchantCreate(BaseModel):
     longitude: float
     description: Optional[str] = None
     image_url: Optional[str] = None
+    slogan: Optional[str] = None
+    hours: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
 
 
 class MerchantUpdate(BaseModel):
@@ -45,6 +51,10 @@ class MerchantUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
     image_url: Optional[str] = None
+    slogan: Optional[str] = None
+    hours: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
  
 class CampaignCreate(BaseModel):
     title: str
@@ -124,6 +134,10 @@ class MerchantResponse(BaseModel):
     campaigns: List[CampaignResponse] = []
     reviews: List[ReviewResponse] = []
     image_url: Optional[str] = None
+    slogan: Optional[str] = None
+    hours: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
 
     @classmethod
     def from_orm_custom(cls, obj):
@@ -141,7 +155,11 @@ class MerchantResponse(BaseModel):
             menus=obj.menus,
             campaigns=[CampaignResponse.model_validate(c) for c in obj.campaigns] if getattr(obj, 'campaigns', None) else [],
             reviews=[ReviewResponse.from_orm_custom(v) for v in obj.videos] if getattr(obj, 'videos', None) else [],
-            image_url=getattr(obj, 'image_url', None)
+            image_url=getattr(obj, 'image_url', None),
+            slogan=getattr(obj, 'slogan', None),
+            hours=getattr(obj, 'hours', None),
+            phone=getattr(obj, 'phone', None),
+            email=getattr(obj, 'email', None)
         )
 
 class StatsResponse(BaseModel):

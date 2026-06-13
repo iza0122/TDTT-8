@@ -53,6 +53,11 @@ class Merchant(Base):
     is_active = Column(Boolean, default=True, nullable=False, index=True) 
     image_url = Column(String, nullable=True)
     
+    slogan = Column(String, nullable=True)
+    hours = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -72,6 +77,7 @@ class Menu(Base):
     is_available = Column(Boolean, default=True, nullable=False)
     description = Column(Text, nullable=True)
     image_url = Column(String, nullable=True)
+    category = Column(String, nullable=True, default="Món ăn")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

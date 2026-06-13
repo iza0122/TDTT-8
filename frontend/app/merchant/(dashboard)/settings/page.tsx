@@ -7,8 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/merchant/page-header";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2, TriangleAlert } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 function PasswordInput({ id, placeholder }: { id: string; placeholder?: string }) {
   const [show, setShow] = useState(false);
@@ -60,18 +63,80 @@ interface NotificationRowProps {
 
 function NotificationRow({ id, label, description, defaultChecked = false }: NotificationRowProps) {
   const [checked, setChecked] = useState(defaultChecked);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    const saved = localStorage.getItem(`pref_notif_${id}`);
+    if (saved !== null) {
+      setChecked(saved === "true");
+    }
+  }, [id]);
+
+  const handleChange = (val: boolean) => {
+    setChecked(val);
+    localStorage.setItem(`pref_notif_${id}`, String(val));
+  };
+
   return (
     <div className="flex items-center justify-between gap-4 py-4 border-b border-border last:border-0">
       <div className="flex-1">
         <Label htmlFor={id} className="text-sm font-medium cursor-pointer">{label}</Label>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
       </div>
-      <Switch id={id} checked={checked} onCheckedChange={setChecked} />
+      {isMounted ? (
+        <Switch id={id} checked={checked} onCheckedChange={handleChange} />
+      ) : (
+        <Switch id={id} checked={defaultChecked} disabled />
+      )}
     </div>
   );
 }
 
 export default function MerchantSettingsPage() {
+  const { token, logout } = useAuth();
+  const { toast } = useToast();
+  const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!token) {
+      toast({
+        title: "Lỗi",
+        description: "Bạn chưa đăng nhập.",
+        variant: "destructive"
+      });
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const response = await fetch("/api/auth/users/me", {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        toast({
+          title: "Thành công 🎉",
+          description: "Tài khoản của bạn đã được xóa vĩnh viễn.",
+        });
+        logout();
+        router.push("/");
+      } else {
+        const errData = await response.json();
+        throw new Error(errData.detail || "Không thể xóa tài khoản.");
+      }
+    } catch (err: any) {
+      toast({
+        title: "Lỗi",
+        description: err.message || "Lỗi khi xóa tài khoản.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   return (
     <div className="space-y-6">
       <PageHeader
@@ -174,8 +239,12 @@ export default function MerchantSettingsPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Hủy</AlertDialogCancel>
-                  <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90">
-                    Xóa vĩnh viễn
+                  <AlertDialogAction
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? "Đang xóa..." : "Xóa vĩnh viễn"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

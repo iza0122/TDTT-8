@@ -375,3 +375,49 @@ def login_google_user(db: Session, data: GoogleLoginRequest) -> dict:
         "token_type": "bearer",
         "user": user
     }
+
+def delete_user_account(db: Session, user: User):
+    """
+    Xóa tài khoản người dùng và thực hiện cascade delete toàn bộ dữ liệu liên quan
+    để tránh vi phạm ràng buộc khoá ngoại (Merchants, Menus, Campaigns, Videos, Likes, Comments, v.v.).
+    """
+    from backend.core.all_models import Merchant, Video, UserFollow, HiddenVideo, Like, Comment, CommentLike, UserShare
+
+    # 1. Với các quán ăn (Merchants) của người dùng:
+    # Set tagged_merchant_id = None cho các video gắn thẻ các quán này
+    merchant_ids = [m.id for m in user.merchants]
+    if merchant_ids:
+        db.query(Video).filter(Video.tagged_merchant_id.in_(merchant_ids)).update({Video.tagged_merchant_id: None}, synchronize_session=False)
+
+    # 2. Với các bài viết (Videos) của người dùng:
+    # Set reup_from_id = None cho bất kỳ video nào reup từ video của người dùng này
+    user_video_ids = [v.id for v in user.videos]
+    if user_video_ids:
+        db.query(Video).filter(Video.reup_from_id.in_(user_video_ids)).update({Video.reup_from_id: None}, synchronize_session=False)
+
+    # 3. Xóa các bản ghi liên kết trung gian
+    db.query(HiddenVideo).filter(HiddenVideo.user_id == user.id).delete(synchronize_session=False)
+    db.query(UserFollow).filter((UserFollow.follower_id == user.id) | (UserFollow.following_id == user.id)).delete(synchronize_session=False)
+    db.query(UserShare).filter(UserShare.user_id == user.id).delete(synchronize_session=False)
+
+    # 4. Xóa các bài viết của người dùng (nó sẽ cascade xóa likes, comments tương ứng)
+    for video in user.videos:
+        db.delete(video)
+
+    # 5. Xóa các quán ăn của người dùng (nó sẽ cascade xóa menus, campaigns tương ứng)
+    for merchant in user.merchants:
+        db.delete(merchant)
+
+    # 6. Xóa khỏi Firebase Auth nếu có UID
+    if user.firebase_uid:
+        try:
+            auth.delete_user(user.firebase_uid)
+            print(f"[IDENTITY] Đã xóa user {user.email} khỏi Firebase Auth.")
+        except Exception as e:
+            print(f"[IDENTITY] Cảnh báo: Không thể xóa user khỏi Firebase Auth: {e}")
+
+    # 7. Cuối cùng, xóa chính user đó
+    db.delete(user)
+    db.commit()
+
+    return {"status": "success", "message": "Tài khoản và dữ liệu liên quan đã được xóa sạch."}

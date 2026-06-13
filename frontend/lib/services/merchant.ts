@@ -6,6 +6,10 @@ export interface MerchantCreatePayload {
   longitude: number;
   description?: string;
   image_url?: string;
+  slogan?: string;
+  hours?: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface MerchantUpdatePayload {
@@ -17,6 +21,10 @@ export interface MerchantUpdatePayload {
   description?: string;
   is_active?: boolean;
   image_url?: string;
+  slogan?: string;
+  hours?: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface LocationCoordinates {
@@ -38,6 +46,10 @@ export interface MerchantResponse {
   is_active: boolean;
   created_at: string;
   image_url?: string | null;
+  slogan?: string | null;
+  hours?: string | null;
+  phone?: string | null;
+  email?: string | null;
 }
 
 export interface Restaurant {
@@ -231,7 +243,7 @@ export async function getMerchant(id: number): Promise<MerchantResponse & { menu
 export async function addMenuItem(
   merchantId: number,
   token: string,
-  itemData: { dish_name: string; price: number; is_available?: boolean; description?: string; image_url?: string }
+  itemData: { dish_name: string; price: number; is_available?: boolean; description?: string; image_url?: string; category?: string }
 ): Promise<any> {
   validateId(merchantId, "nhà hàng");
   const response = await fetch(`/api/merchant/${merchantId}/menus`, {
@@ -254,7 +266,7 @@ export async function updateMenuItem(
   merchantId: number,
   menuId: number,
   token: string,
-  itemData: { dish_name?: string; price?: number; is_available?: boolean; description?: string; image_url?: string }
+  itemData: { dish_name?: string; price?: number; is_available?: boolean; description?: string; image_url?: string; category?: string }
 ): Promise<any> {
   validateId(merchantId, "nhà hàng");
   validateId(menuId, "món ăn");

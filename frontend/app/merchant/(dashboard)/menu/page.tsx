@@ -89,6 +89,7 @@ export default function MenuManagementPage() {
   const [merchant, setMerchant] = useState<MerchantResponse | null>(null);
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [selectedDishCategory, setSelectedDishCategory] = useState<string>("");
   const [isDishDialogOpen, setIsDishDialogOpen] = useState(false);
   const [editingDish, setEditingDish] = useState<Dish | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -101,10 +102,28 @@ export default function MenuManagementPage() {
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
   const [isSavingDish, setIsSavingDish] = useState(false);
 
+  // Sync categories from localStorage for the active merchant
+  useEffect(() => {
+    if (merchant) {
+      const savedCats = localStorage.getItem(`merchant_categories_${merchant.id}`);
+      if (savedCats) {
+        try {
+          setCategories(JSON.parse(savedCats));
+        } catch (e) {
+          console.error("Failed to parse categories from localStorage", e);
+          setCategories(mockCategories);
+        }
+      } else {
+        setCategories(mockCategories);
+      }
+    }
+  }, [merchant]);
+
   useEffect(() => {
     if (isDishDialogOpen) {
       setSelectedImageFile(null);
       setSelectedImagePreview(editingDish?.imageUrl || null);
+      setSelectedDishCategory(editingDish?.category || (categories[0]?.name || "Món ăn"));
     } else {
       setSelectedImageFile(null);
       if (selectedImagePreview && selectedImageFile) {
@@ -112,7 +131,7 @@ export default function MenuManagementPage() {
       }
       setSelectedImagePreview(null);
     }
-  }, [isDishDialogOpen, editingDish]);
+  }, [isDishDialogOpen, editingDish, categories]);
 
   useEffect(() => {
     const fetchMerchantAndMenu = async () => {
@@ -132,7 +151,7 @@ export default function MenuManagementPage() {
             name: m.dish_name,
             price: m.price,
             description: m.description || "",
-            category: "Món ăn",
+            category: m.category || "Món ăn",
             imageUrl: m.image_url || "",
             is_available: m.is_available ?? true
           }));
@@ -238,7 +257,8 @@ export default function MenuManagementPage() {
           price: priceVal,
           is_available: dishAvailable,
           description: dishDescription,
-          image_url: imageUrlToSave
+          image_url: imageUrlToSave,
+          category: selectedDishCategory
         });
 
         setDishes((prev) =>
@@ -251,6 +271,7 @@ export default function MenuManagementPage() {
                   is_available: updatedItem.is_available ?? true,
                   description: updatedItem.description || "",
                   imageUrl: updatedItem.image_url || "",
+                  category: updatedItem.category || "Món ăn",
                 }
               : d
           )
@@ -266,7 +287,8 @@ export default function MenuManagementPage() {
           price: priceVal,
           is_available: true,
           description: dishDescription,
-          image_url: imageUrlToSave
+          image_url: imageUrlToSave,
+          category: selectedDishCategory
         });
 
         const mappedNewDish: Dish = {
@@ -274,7 +296,7 @@ export default function MenuManagementPage() {
           name: newItem.dish_name,
           price: newItem.price,
           description: newItem.description || "",
-          category: "Món ăn",
+          category: newItem.category || "Món ăn",
           imageUrl: newItem.image_url || "",
           is_available: newItem.is_available ?? true,
         };
@@ -320,14 +342,20 @@ export default function MenuManagementPage() {
 
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newCategoryName.trim()) {
-      setCategories([...categories, { id: String(Date.now()), name: newCategoryName.trim() }]);
+    if (newCategoryName.trim() && merchant) {
+      const updated = [...categories, { id: String(Date.now()), name: newCategoryName.trim() }];
+      setCategories(updated);
+      localStorage.setItem(`merchant_categories_${merchant.id}`, JSON.stringify(updated));
       setNewCategoryName("");
     }
   };
 
   const handleDeleteCategory = (id: string) => {
-    setCategories(categories.filter((c) => c.id !== id));
+    if (merchant) {
+      const updated = categories.filter((c) => c.id !== id);
+      setCategories(updated);
+      localStorage.setItem(`merchant_categories_${merchant.id}`, JSON.stringify(updated));
+    }
   };
 
   if (isLoading) {
@@ -388,7 +416,7 @@ export default function MenuManagementPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="dishCategory">Danh mục</Label>
-                    <Select defaultValue={editingDish?.category ?? ""}>
+                    <Select value={selectedDishCategory} onValueChange={setSelectedDishCategory}>
                       <SelectTrigger id="dishCategory">
                         <SelectValue placeholder="Chọn danh mục" />
                       </SelectTrigger>

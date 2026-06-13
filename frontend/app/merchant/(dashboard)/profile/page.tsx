@@ -180,6 +180,10 @@ export default function MerchantProfilePage() {
     setDescription(m.description || "");
     setLatitude(m.location ? m.location.lat.toString() : (m.latitude?.toString() || ""));
     setLongitude(m.location ? m.location.lng.toString() : (m.longitude?.toString() || ""));
+    setSlogan(m.slogan || "");
+    setHours(m.hours || "");
+    setPhone(m.phone || "");
+    setEmail(m.email || "");
 
     // Reset image states
     setSelectedImageFile(null);
@@ -287,12 +291,12 @@ export default function MerchantProfilePage() {
 
     switch (tab) {
       case "general":
-        payload = { name, category, description };
+        payload = { name, category, description, slogan, hours };
         successMessage = "Thông tin chung đã được cập nhật.";
         errorMessage = "Lỗi khi cập nhật thông tin chung.";
         break;
       case "contact":
-        payload = { address }; // Assuming phone and email are not part of merchant schema
+        payload = { address, phone, email };
         successMessage = "Thông tin liên hệ đã được cập nhật.";
         errorMessage = "Lỗi khi cập nhật thông tin liên hệ.";
         break;
