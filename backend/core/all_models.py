@@ -51,6 +51,7 @@ class Merchant(Base):
     
     # 4. CẢI TIẾN: Tránh lỗi "Hard-delete" nhà hàng làm mất sạch video/data của hệ thống
     is_active = Column(Boolean, default=True, nullable=False, index=True) 
+    image_url = Column(String, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -69,6 +70,8 @@ class Menu(Base):
     dish_name = Column(String, nullable=False)
     price = Column(Integer, nullable=False)
     is_available = Column(Boolean, default=True, nullable=False)
+    description = Column(Text, nullable=True)
+    image_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

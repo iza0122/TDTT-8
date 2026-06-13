@@ -10,6 +10,8 @@ class MenuCreate(BaseModel):
     dish_name: str
     price: int
     is_available: bool = True
+    description: Optional[str] = None
+    image_url: Optional[str] = None
 
 class MenuResponse(MenuCreate):
     id: int
@@ -21,6 +23,8 @@ class MenuUpdate(BaseModel):
     dish_name: Optional[str] = None
     price: Optional[int] = None
     is_available: Optional[bool] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
 
 class MerchantCreate(BaseModel):
     name: str
@@ -29,6 +33,7 @@ class MerchantCreate(BaseModel):
     latitude: float
     longitude: float
     description: Optional[str] = None
+    image_url: Optional[str] = None
 
 
 class MerchantUpdate(BaseModel):
@@ -39,6 +44,7 @@ class MerchantUpdate(BaseModel):
     longitude: Optional[float] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    image_url: Optional[str] = None
  
 class CampaignCreate(BaseModel):
     title: str
@@ -83,6 +89,7 @@ class ReviewResponse(BaseModel):
     date: datetime
     response: Optional[str] = None
     reviewerId: int
+    reviewImage: Optional[str] = None
 
     @classmethod
     def from_orm_custom(cls, obj):
@@ -95,7 +102,8 @@ class ReviewResponse(BaseModel):
             comment=obj.description or "",
             date=obj.created_at,
             response=obj.merchant_response,
-            reviewerId=obj.reviewer_id
+            reviewerId=obj.reviewer_id,
+            reviewImage=obj.thumbnail_url
         )
 
 class ReviewResponsePayload(BaseModel):
@@ -115,6 +123,7 @@ class MerchantResponse(BaseModel):
     menus: List[MenuResponse] = []
     campaigns: List[CampaignResponse] = []
     reviews: List[ReviewResponse] = []
+    image_url: Optional[str] = None
 
     @classmethod
     def from_orm_custom(cls, obj):
@@ -131,7 +140,8 @@ class MerchantResponse(BaseModel):
             location=Location(lat=obj.latitude, lng=obj.longitude),
             menus=obj.menus,
             campaigns=[CampaignResponse.model_validate(c) for c in obj.campaigns] if getattr(obj, 'campaigns', None) else [],
-            reviews=[ReviewResponse.from_orm_custom(v) for v in obj.videos] if getattr(obj, 'videos', None) else []
+            reviews=[ReviewResponse.from_orm_custom(v) for v in obj.videos] if getattr(obj, 'videos', None) else [],
+            image_url=getattr(obj, 'image_url', None)
         )
 
 class StatsResponse(BaseModel):

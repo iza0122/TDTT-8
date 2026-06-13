@@ -195,7 +195,7 @@ def geo_search_merchants(
     filter_clause = " AND ".join(conditions)
 
     query_str = f"""
-        SELECT id, name, address, category, latitude, longitude, description, rating_avg, created_at,
+        SELECT id, name, address, category, latitude, longitude, description, rating_avg, created_at, image_url,
                {haversine_sql} AS distance
         FROM merchants
         WHERE {filter_clause}
@@ -218,6 +218,7 @@ def geo_search_merchants(
             "description": row.description,
             "rating_avg": row.rating_avg,
             "distance": round(row.distance, 3), # Round to 3 decimal places (meters precision)
+            "image_url": row.image_url,
             "created_at": row.created_at
         })
         

@@ -51,6 +51,7 @@ class MerchantSearchResponse(BaseModel):
     description: Optional[str] = None
     rating_avg: float
     distance: float  # In kilometers
+    image_url: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

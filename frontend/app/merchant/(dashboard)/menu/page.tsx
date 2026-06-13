@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/merchant/page-header";
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Search, X, Utensils, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, Utensils, Loader2, UploadCloud } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -96,6 +96,24 @@ export default function MenuManagementPage() {
   const [filterCategory, setFilterCategory] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
 
+  // Dish Photo upload states
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const [isSavingDish, setIsSavingDish] = useState(false);
+
+  useEffect(() => {
+    if (isDishDialogOpen) {
+      setSelectedImageFile(null);
+      setSelectedImagePreview(editingDish?.imageUrl || null);
+    } else {
+      setSelectedImageFile(null);
+      if (selectedImagePreview && selectedImageFile) {
+        URL.revokeObjectURL(selectedImagePreview);
+      }
+      setSelectedImagePreview(null);
+    }
+  }, [isDishDialogOpen, editingDish]);
+
   useEffect(() => {
     const fetchMerchantAndMenu = async () => {
       if (!token || !user) {
@@ -113,9 +131,9 @@ export default function MenuManagementPage() {
             id: String(m.id),
             name: m.dish_name,
             price: m.price,
-            description: "",
+            description: m.description || "",
             category: "Món ăn",
-            imageUrl: "",
+            imageUrl: m.image_url || "",
             is_available: m.is_available ?? true
           }));
           setDishes(mappedDishes);
@@ -154,10 +172,12 @@ export default function MenuManagementPage() {
     const target = e.target as HTMLFormElement;
     const dishNameInput = target.elements.namedItem("dishName") as HTMLInputElement;
     const dishPriceInput = target.elements.namedItem("dishPrice") as HTMLInputElement;
+    const dishDescriptionInput = target.elements.namedItem("dishDescription") as HTMLTextAreaElement;
     const dishAvailableInput = target.elements.namedItem("dishAvailable") as HTMLInputElement;
 
     const dishName = dishNameInput?.value || "";
     const dishPriceRaw = dishPriceInput?.value || "";
+    const dishDescription = dishDescriptionInput?.value || "";
     const dishAvailable = dishAvailableInput ? dishAvailableInput.checked : true;
 
     if (!dishName.trim() || !dishPriceRaw) {
@@ -170,13 +190,55 @@ export default function MenuManagementPage() {
     }
 
     const priceVal = Math.round(parseFloat(dishPriceRaw));
+    setIsSavingDish(true);
 
     try {
+      let imageUrlToSave = editingDish?.imageUrl || "";
+
+      if (selectedImageFile) {
+        const presignedRes = await fetch("/api/content/presigned-url", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            file_name: selectedImageFile.name,
+            content_type: selectedImageFile.type,
+            folder: "images"
+          })
+        });
+
+        if (!presignedRes.ok) {
+          throw new Error("Không thể khởi tạo link tải ảnh lên hệ thống.");
+        }
+
+        const { upload_url, public_url } = await presignedRes.json();
+
+        const uploadRes = await fetch(upload_url, {
+          method: "PUT",
+          headers: {
+            "Content-Type": selectedImageFile.type
+          },
+          body: selectedImageFile
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error("Không thể tải ảnh lên kho lưu trữ đám mây.");
+        }
+
+        imageUrlToSave = public_url;
+      } else if (selectedImagePreview === null) {
+        imageUrlToSave = "";
+      }
+
       if (editingDish) {
         const updatedItem = await updateMenuItem(merchant.id, Number(editingDish.id), token, {
           dish_name: dishName,
           price: priceVal,
           is_available: dishAvailable,
+          description: dishDescription,
+          image_url: imageUrlToSave
         });
 
         setDishes((prev) =>
@@ -187,6 +249,8 @@ export default function MenuManagementPage() {
                   name: updatedItem.dish_name,
                   price: updatedItem.price,
                   is_available: updatedItem.is_available ?? true,
+                  description: updatedItem.description || "",
+                  imageUrl: updatedItem.image_url || "",
                 }
               : d
           )
@@ -201,15 +265,17 @@ export default function MenuManagementPage() {
           dish_name: dishName,
           price: priceVal,
           is_available: true,
+          description: dishDescription,
+          image_url: imageUrlToSave
         });
 
         const mappedNewDish: Dish = {
           id: String(newItem.id),
           name: newItem.dish_name,
           price: newItem.price,
-          description: "",
+          description: newItem.description || "",
           category: "Món ăn",
-          imageUrl: "",
+          imageUrl: newItem.image_url || "",
           is_available: newItem.is_available ?? true,
         };
 
@@ -228,6 +294,8 @@ export default function MenuManagementPage() {
         description: error.message || "Không thể lưu món ăn.",
         variant: "destructive",
       });
+    } finally {
+      setIsSavingDish(false);
     }
   };
 
@@ -345,11 +413,57 @@ export default function MenuManagementPage() {
                   </div>
                 )}
                 <div className="grid gap-2">
-                  <Label htmlFor="dishImage">URL hình ảnh</Label>
-                  <Input id="dishImage" defaultValue={editingDish?.imageUrl ?? ""} placeholder="https://..." />
+                  <Label>Hình ảnh món ăn</Label>
+                  {selectedImagePreview ? (
+                    <div className="relative group w-32 h-24 rounded-xl overflow-hidden border border-border shadow-xs bg-muted">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={selectedImagePreview} alt="Dish preview" className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-200" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedImageFile(null);
+                          setSelectedImagePreview(null);
+                        }}
+                        className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold gap-1 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" /> Gỡ ảnh
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fileInput = document.getElementById("dishImageFile") as HTMLInputElement;
+                          fileInput?.click();
+                        }}
+                        className="w-full py-6 flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border text-center hover:border-primary hover:bg-primary/5 transition-colors group cursor-pointer"
+                      >
+                        <UploadCloud className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                        <span className="text-xs font-semibold text-foreground">Tải ảnh món ăn lên</span>
+                        <span className="text-[10px] text-muted-foreground">PNG, JPG tối đa 5MB</span>
+                      </button>
+                      <input
+                        id="dishImageFile"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setSelectedImageFile(file);
+                          if (file) {
+                            setSelectedImagePreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
-                  <Button type="submit">Lưu món ăn</Button>
+                  <Button type="submit" disabled={isSavingDish} className="gap-1.5">
+                    {isSavingDish && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    {isSavingDish ? "Đang lưu..." : "Lưu món ăn"}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>

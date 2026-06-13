@@ -20,49 +20,33 @@ import Link from "next/link";
 interface ImageUploadZoneProps {
   label: string;
   description?: string;
-  multiple?: boolean;
+  previewUrl: string | null;
+  onChange: (file: File | null) => void;
 }
 
-function ImageUploadZone({ label, description, multiple = false }: ImageUploadZoneProps) {
-  const [previews, setPreviews] = useState<string[]>([]);
+function ImageUploadZone({ label, description, previewUrl, onChange }: ImageUploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = (files: FileList | null) => {
-    if (!files) return;
-    const urls = Array.from(files).map((f) => URL.createObjectURL(f));
-    setPreviews(multiple ? [...previews, ...urls] : urls);
-  };
-
-  const removePreview = (i: number) => {
-    setPreviews(previews.filter((_, idx) => idx !== i));
+    if (!files || files.length === 0) return;
+    onChange(files[0]);
   };
 
   return (
     <div className="grid gap-2">
       <Label>{label}</Label>
-      {previews.length > 0 ? (
-        <div className={`flex flex-wrap gap-3`}>
-          {previews.map((src, i) => (
-            <div key={i} className="relative group w-24 h-24 rounded-xl overflow-hidden border border-border">
-              <Image src={src} alt="" fill className="object-cover" />
-              <button
-                type="button"
-                onClick={() => removePreview(i)}
-                className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
-            </div>
-          ))}
-          {multiple && (
+      {previewUrl ? (
+        <div className="flex flex-wrap gap-3">
+          <div className="relative group w-48 h-32 rounded-xl overflow-hidden border border-border shadow-xs bg-muted">
+            <Image src={previewUrl} alt="Restaurant preview image" fill className="object-cover animate-in fade-in zoom-in-95 duration-200" />
             <button
               type="button"
-              onClick={() => inputRef.current?.click()}
-              className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              onClick={() => onChange(null)}
+              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold gap-1 cursor-pointer"
             >
-              <UploadCloud className="w-5 h-5" />
+              <X className="w-4 h-4" /> Thay đổi ảnh
             </button>
-          )}
+          </div>
         </div>
       ) : (
         <button
@@ -83,7 +67,6 @@ function ImageUploadZone({ label, description, multiple = false }: ImageUploadZo
         ref={inputRef}
         type="file"
         accept="image/*"
-        multiple={multiple}
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />
@@ -130,6 +113,30 @@ export default function MerchantProfilePage() {
   const [phone, setPhone] = useState(""); // Assuming phone will be added to backend later
   const [email, setEmail] = useState(""); // Assuming email will be added to backend later
 
+  // Image Upload states
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (selectedImagePreview && selectedImageFile) {
+        URL.revokeObjectURL(selectedImagePreview);
+      }
+    };
+  }, [selectedImagePreview, selectedImageFile]);
+
+  const handleImageChange = (file: File | null) => {
+    if (selectedImagePreview && selectedImageFile) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+    setSelectedImageFile(file);
+    if (file) {
+      setSelectedImagePreview(URL.createObjectURL(file));
+    } else {
+      setSelectedImagePreview(merchant?.image_url || null);
+    }
+  };
+
   // Add Restaurant Dialog Form states
   const [newMerchantName, setNewMerchantName] = useState("");
   const [newMerchantAddress, setNewMerchantAddress] = useState("");
@@ -173,6 +180,10 @@ export default function MerchantProfilePage() {
     setDescription(m.description || "");
     setLatitude(m.location ? m.location.lat.toString() : (m.latitude?.toString() || ""));
     setLongitude(m.location ? m.location.lng.toString() : (m.longitude?.toString() || ""));
+
+    // Reset image states
+    setSelectedImageFile(null);
+    setSelectedImagePreview(m.image_url || null);
   };
 
   useEffect(() => {
@@ -294,16 +305,62 @@ export default function MerchantProfilePage() {
         errorMessage = "Lỗi khi cập nhật vị trí.";
         break;
       case "images":
-        // Image handling logic will go here later. For now, it's a placeholder.
-        successMessage = "Hình ảnh đã được cập nhật (placeholder).";
-        errorMessage = "Lỗi khi cập nhật hình ảnh (placeholder).";
-        setIsSaving(false); // No actual saving for images yet
-        toast({
-          title: "Thông báo",
-          description: successMessage,
-          variant: "default",
-        });
-        return;
+        if (!selectedImageFile) {
+          toast({
+            title: "Thông báo",
+            description: "Chưa chọn hình ảnh mới để tải lên.",
+          });
+          setIsSaving(false);
+          return;
+        }
+
+        try {
+          const presignedRes = await fetch("/api/content/presigned-url", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              file_name: selectedImageFile.name,
+              content_type: selectedImageFile.type,
+              folder: "images"
+            })
+          });
+
+          if (!presignedRes.ok) {
+            throw new Error("Không thể khởi tạo link tải ảnh lên hệ thống.");
+          }
+
+          const { upload_url, public_url } = await presignedRes.json();
+
+          const uploadRes = await fetch(upload_url, {
+            method: "PUT",
+            headers: {
+              "Content-Type": selectedImageFile.type
+            },
+            body: selectedImageFile
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error("Không thể tải ảnh lên kho lưu trữ đám mây.");
+          }
+
+          payload = { image_url: public_url };
+          successMessage = "Hình ảnh nhà hàng đã được cập nhật.";
+          errorMessage = "Lỗi khi cập nhật hình ảnh nhà hàng.";
+        } catch (err: any) {
+          console.error("Lỗi khi upload ảnh:", err);
+          setError(err.message || "Lỗi khi tải hình ảnh lên.");
+          toast({
+            title: "Lỗi tải ảnh 🙁",
+            description: err.message || "Không thể cập nhật hình ảnh.",
+            variant: "destructive"
+          });
+          setIsSaving(false);
+          return;
+        }
+        break;
       default:
         setIsSaving(false);
         return;
@@ -313,6 +370,9 @@ export default function MerchantProfilePage() {
       const updated = await updateMerchant(merchant.id, token, payload);
       setMerchant(updated);
       setMerchantsList(prev => prev.map(m => m.id === updated.id ? updated : m));
+      if (tab === "images") {
+        setSelectedImageFile(null);
+      }
       toast({
         title: "Thành công! 🎉",
         description: successMessage,
@@ -622,23 +682,16 @@ export default function MerchantProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle>Hình ảnh nhà hàng</CardTitle>
-              <CardDescription>Tải lên ảnh đại diện, ảnh bìa và thư viện ảnh.</CardDescription>
+              <CardDescription>Tải lên hình ảnh đại diện và ảnh nền (Hero) của nhà hàng.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <ImageUploadZone
-                label="Ảnh đại diện"
-                description="Ảnh vuông, tối thiểu 200×200px"
+                label="Ảnh đại diện / Ảnh nền quán ăn"
+                description="Hình ảnh đại diện của quán ăn hiển thị trên trang chủ và trang chi tiết. Khuyến nghị 1600×900px, dung lượng tối đa 5MB."
+                previewUrl={selectedImagePreview}
+                onChange={handleImageChange}
               />
-              <ImageUploadZone
-                label="Ảnh bìa (Hero)"
-                description="Ảnh ngang, khuyến nghị 1600×900px"
-              />
-              <ImageUploadZone
-                label="Thư viện ảnh"
-                description="Có thể tải nhiều ảnh cùng lúc"
-                multiple
-              />
-              <SaveButton label="Tải ảnh lên" onClick={() => handleSubmit("images")} loading={isSaving} />
+              <SaveButton label="Lưu hình ảnh" onClick={() => handleSubmit("images")} loading={isSaving} />
             </CardContent>
           </Card>
         </TabsContent>

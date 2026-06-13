@@ -9,7 +9,8 @@ def create_merchant(db: Session, merchant: schemas.MerchantCreate, owner_id: int
         latitude=merchant.latitude,
         longitude=merchant.longitude,
         description=merchant.description,
-        owner_id=owner_id
+        owner_id=owner_id,
+        image_url=merchant.image_url
     )
     db.add(db_merchant)
     db.commit()

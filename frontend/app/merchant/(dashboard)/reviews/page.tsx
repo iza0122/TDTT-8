@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/merchant/page-header";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Star, MessageSquare, StarOff, Loader2, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +32,7 @@ interface Review {
   comment: string;
   date: string;
   response?: string;
+  image?: string;
 }
 
 const mapBackendReviewToReview = (r: ReviewResponse): Review => ({
@@ -40,7 +42,8 @@ const mapBackendReviewToReview = (r: ReviewResponse): Review => ({
   rating: r.rating,
   comment: r.comment,
   date: r.date.split("T")[0],
-  response: r.response || undefined
+  response: r.response || undefined,
+  image: r.reviewImage || undefined
 });
 
 function StarRow({ rating }: { rating: number }) {
@@ -72,6 +75,7 @@ export default function ReviewsManagementPage() {
   const [respondingTo, setRespondingTo] = useState<Review | null>(null);
   const [responseText, setResponseText] = useState("");
   const [isDeletingId, setIsDeletingId] = useState<number | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const handleDeleteReview = async (reviewId: number) => {
     if (!token || !merchant) return;
@@ -290,6 +294,19 @@ export default function ReviewsManagementPage() {
                       "{review.comment}"
                     </p>
 
+                    {review.image && (
+                      <div className="mb-4 relative w-24 h-24 rounded-xl overflow-hidden border border-border/60 hover:border-primary/50 transition-all cursor-pointer group bg-muted flex items-center justify-center shadow-xs">
+                        <Image
+                          src={review.image}
+                          alt="Review image"
+                          fill
+                          sizes="96px"
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          onClick={() => setZoomedImage(review.image)}
+                        />
+                      </div>
+                    )}
+
                     {/* Owner's response bubble if exists */}
                     {review.response ? (
                       <div className="mb-4 p-3.5 bg-primary/5 rounded-xl border border-primary/10 space-y-1.5 relative group/response animate-in fade-in duration-200">
@@ -369,6 +386,40 @@ export default function ReviewsManagementPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.96) translateY(12px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+      `}} />
+
+      {zoomedImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/10 shadow-2xl bg-black/40" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setZoomedImage(null)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center text-xl transition-all border border-white/10 font-bold cursor-pointer"
+            >
+              ×
+            </button>
+            <div className="relative w-full h-full flex items-center justify-center min-w-[300px] min-h-[200px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={zoomedImage}
+                alt="Zoomed review image"
+                className="max-w-full max-h-[85vh] object-contain select-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ export interface MerchantCreatePayload {
   latitude: number;
   longitude: number;
   description?: string;
+  image_url?: string;
 }
 
 export interface MerchantUpdatePayload {
@@ -15,6 +16,7 @@ export interface MerchantUpdatePayload {
   longitude?: number;
   description?: string;
   is_active?: boolean;
+  image_url?: string;
 }
 
 export interface LocationCoordinates {
@@ -35,6 +37,7 @@ export interface MerchantResponse {
   owner_id: number;
   is_active: boolean;
   created_at: string;
+  image_url?: string | null;
 }
 
 export interface Restaurant {
@@ -228,7 +231,7 @@ export async function getMerchant(id: number): Promise<MerchantResponse & { menu
 export async function addMenuItem(
   merchantId: number,
   token: string,
-  itemData: { dish_name: string; price: number; is_available?: boolean }
+  itemData: { dish_name: string; price: number; is_available?: boolean; description?: string; image_url?: string }
 ): Promise<any> {
   validateId(merchantId, "nhà hàng");
   const response = await fetch(`/api/merchant/${merchantId}/menus`, {
@@ -251,7 +254,7 @@ export async function updateMenuItem(
   merchantId: number,
   menuId: number,
   token: string,
-  itemData: { dish_name?: string; price?: number; is_available?: boolean }
+  itemData: { dish_name?: string; price?: number; is_available?: boolean; description?: string; image_url?: string }
 ): Promise<any> {
   validateId(merchantId, "nhà hàng");
   validateId(menuId, "món ăn");
@@ -342,6 +345,7 @@ export interface ReviewResponse {
   date: string;
   response: string | null;
   reviewerId: number;
+  reviewImage: string | null;
 }
 
 export async function getCampaigns(merchantId: number, token: string): Promise<CampaignResponse[]> {
@@ -490,6 +494,7 @@ export async function deleteMerchant(merchantId: number, token: string): Promise
 export interface ReviewCreatePayload {
   rating: number;
   comment: string;
+  thumbnail_url?: string;
 }
 
 export async function submitReview(
@@ -518,6 +523,7 @@ export async function submitReview(
       tagged_merchant_id: merchantId,
       post_type: "review",
       rating: payload.rating,
+      thumbnail_url: payload.thumbnail_url
     }),
   });
 

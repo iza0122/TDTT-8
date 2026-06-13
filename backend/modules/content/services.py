@@ -100,20 +100,40 @@ def create_video(db: Session, video_in: VideoCreate, reviewer_id: int) -> Video:
             
     is_review = video_in.post_type == "review" or video_in.post_type == "text"
     
-    db_video = Video(
-        title=video_in.title,
-        video_url=video_in.video_url,
-        thumbnail_url=video_in.thumbnail_url,
-        description=video_in.description,
-        reviewer_id=reviewer_id,
-        tagged_merchant_id=tagged_merchant_id,
-        post_type=video_in.post_type or "video",
-        rating=video_in.rating if video_in.rating is not None else 5,
-        status="approved" if is_review else "pending"  # Tự động duyệt đối với đánh giá bằng chữ
-    )
+    # Kiểm tra xem đã có đánh giá cũ chưa để ghi đè (Anti-Spam / Edit Review)
+    existing_review = None
+    if is_review and tagged_merchant_id is not None:
+        existing_review = db.query(Video).filter(
+            Video.reviewer_id == reviewer_id,
+            Video.tagged_merchant_id == tagged_merchant_id,
+            (Video.post_type == "review") | (Video.post_type == "text")
+        ).first()
+
+    if existing_review:
+        from datetime import datetime
+        existing_review.title = video_in.title
+        existing_review.description = video_in.description
+        existing_review.rating = video_in.rating if video_in.rating is not None else 5
+        if video_in.thumbnail_url:
+            existing_review.thumbnail_url = video_in.thumbnail_url
+        existing_review.created_at = datetime.utcnow()
+        db_video = existing_review
+    else:
+        db_video = Video(
+            title=video_in.title,
+            video_url=video_in.video_url,
+            thumbnail_url=video_in.thumbnail_url,
+            description=video_in.description,
+            reviewer_id=reviewer_id,
+            tagged_merchant_id=tagged_merchant_id,
+            post_type=video_in.post_type or "video",
+            rating=video_in.rating if video_in.rating is not None else 5,
+            status="approved" if is_review else "pending"  # Tự động duyệt đối với đánh giá bằng chữ
+        )
     
     try:
-        db.add(db_video)
+        if not existing_review:
+            db.add(db_video)
         db.commit()
         db.refresh(db_video)
         
