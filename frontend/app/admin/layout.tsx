@@ -114,6 +114,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
+    if (!router) return; // Add this line
     if (!loading && user && user.role !== "admin") {
       router.replace("/");
     }
