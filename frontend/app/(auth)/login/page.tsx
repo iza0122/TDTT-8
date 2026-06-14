@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useLoginForm } from "@/hooks/use-login-form";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 export default function LoginPage() {
@@ -22,6 +23,8 @@ export default function LoginPage() {
     handleSubmit,
     handleGoogleLogin,
   } = useLoginForm();
+
+  const { mockAdminLogin } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-950 dark:to-black flex items-center justify-center p-4 overflow-hidden relative select-none antialiased">
@@ -180,6 +183,23 @@ export default function LoginPage() {
               hoặc
             </div>
           </div>
+
+          {/* Mock Admin Login */}
+          <button 
+            type="button"
+            onClick={mockAdminLogin}
+            disabled={isLoading}
+            className="w-full border border-orange-500/85 bg-orange-500/10 hover:bg-orange-500/20 text-orange-500 flex items-center justify-between rounded-full pl-6 pr-2.5 py-2 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer mb-2"
+          >
+            <div className="flex items-center gap-2">
+              <ChefHat className="w-4.5 h-4.5" />
+              <span>Đăng nhập với vai trò Admin</span>
+            </div>
+            
+            <div className="w-7 h-7 bg-orange-500/20 rounded-full flex items-center justify-center transition-all duration-300 group-hover:translate-x-0.5">
+              <ArrowRight className="w-3.5 h-3.5 text-orange-500" />
+            </div>
+          </button>
 
           {/* Social Continue with Google */}
           <button 
