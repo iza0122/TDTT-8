@@ -5,6 +5,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { ChefHat } from "lucide-react";
 
+const IS_MOCKING_ADMIN_DATA = process.env.NEXT_PUBLIC_MOCK_ADMIN_DATA === "true";
+
 interface User {
   id: number;
   firebase_uid: string;
@@ -12,6 +14,7 @@ interface User {
   full_name: string | null;
   avatar_url: string | null;
   role: string;
+  created_at: string;
   meta_data?: any;
 }
 
@@ -22,6 +25,7 @@ interface AuthContextType {
   login: (token: string, user: User, refreshToken?: string) => void;
   logout: () => void;
   updateUser: (updatedUser: Partial<User>) => void;
+  mockAdminLogin: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -96,8 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   // Overriding window.fetch globally to intercept API requests and refresh expired tokens
+  // Only run this effect if not mocking admin data
   useEffect(() => {
     if (!nativeFetch) return;
+
+    if (IS_MOCKING_ADMIN_DATA) {
+      console.log("[useAuth] Mocking admin data, skipping fetch interception.");
+      return;
+    }
 
     window.fetch = async (input, init) => {
       const storedToken = localStorage.getItem("token");
@@ -109,8 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         try {
           // Parse JWT expiration without external libraries
-          const base64Url = storedToken.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const base64Url = storedToken.split(".")[1];
+          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
           const payload = JSON.parse(window.atob(base64));
           
           const exp = payload.exp * 1000;
@@ -217,6 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading) {
+      if (!router) return; 
       if (!token && !isPublicPath) {
         router.replace("/login");
       }
@@ -233,7 +244,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(newUser);
   };
 
+  const mockAdminLogin = () => {
+    if (!router) return; 
+    const mockUser: User = {
+      id: 1, // Assuming ID 1 for the seeded admin user
+      firebase_uid: "g_admin_123",
+      email: "admin@foodreview.com",
+      full_name: "Nguyễn Admin",
+      avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+      role: "admin",
+      created_at: new Date().toISOString(), // Added missing property
+    };
+    const mockToken = "mock-admin-token"; // A dummy token
+
+    localStorage.setItem("token", mockToken);
+    localStorage.setItem("user", JSON.stringify(mockUser));
+    localStorage.setItem("refresh_token", "mock-admin-refresh-token"); // dummy refresh token
+    setToken(mockToken);
+    setUser(mockUser);
+    router.push("/admin");
+    toast({
+      title: "Đăng nhập admin thành công!",
+      description: (
+        <div className="flex items-center gap-2">
+          <ChefHat className="w-4 h-4" />
+          <span>Bạn đã đăng nhập với tài khoản quản trị.</span>
+        </div>
+      ),
+    });
+  };
+
   const logout = () => {
+    if (!router) return; 
     localStorage.removeItem("token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user");
@@ -275,7 +317,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser, mockAdminLogin }}>
       {children}
     </AuthContext.Provider>
   );

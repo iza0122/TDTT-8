@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from backend.core.database import get_db
 from backend.core.security import get_current_user, RoleChecker
+from typing import List # Add this line
 from backend.core.all_models import User
 from . import schemas, services
 
