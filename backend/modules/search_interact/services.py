@@ -154,7 +154,7 @@ def geo_search_merchants(
     like_op = "ILIKE" if dialect == "postgresql" else "LIKE"
     
     # Base parts of SQL query
-    conditions = ["1=1"]
+    conditions = ["1=1", "is_active"]
     params = {
         "lat": lat,
         "lng": lng,

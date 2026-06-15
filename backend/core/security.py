@@ -124,6 +124,11 @@ def get_current_user(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Lỗi khi đồng bộ tài khoản người dùng vào hệ thống: {str(e)}"
                 )
+    if user and isinstance(user.meta_data, dict) and user.meta_data.get("disabled") is True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản của bạn đã bị khóa bởi quản trị viên."
+        )
             
     return user
 

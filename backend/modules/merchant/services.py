@@ -120,7 +120,12 @@ def delete_campaign(db: Session, db_campaign: Campaign):
 
 def get_merchant_reviews(db: Session, merchant_id: int):
     from sqlalchemy.orm import joinedload
-    return db.query(Video).options(joinedload(Video.reviewer)).filter(Video.tagged_merchant_id == merchant_id).order_by(Video.created_at.desc()).all()
+    return db.query(Video).options(
+        joinedload(Video.reviewer)
+    ).filter(
+        Video.tagged_merchant_id == merchant_id,
+        Video.status == "approved"
+    ).order_by(Video.created_at.desc()).all()
 
 def get_review_video(db: Session, video_id: int):
     return db.query(Video).filter(Video.id == video_id).first()

@@ -301,7 +301,7 @@ export async function patchMerchantActive(token: string, merchantId: number, is_
     }
     return Promise.reject(new Error("Merchant not found"));
   }
-  const res = await fetch(`${API_BASE}/merchant/${merchantId}`, {
+  const res = await fetch(`${API_BASE}/admin/merchants/${merchantId}/active`, {
     method: "PATCH",
     headers: authHeaders(token),
     body: JSON.stringify({ is_active }),

@@ -237,7 +237,7 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
         joinedload(Video.reviewer),
         joinedload(Video.tagged_merchant),
         joinedload(Video.reup_from).joinedload(Video.reviewer)
-    )
+    ).filter(Video.status == "approved")
     if post_type:
         query = query.filter(Video.post_type == post_type)
         

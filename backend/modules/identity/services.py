@@ -115,6 +115,12 @@ def login_user(db: Session, data: LoginRequest) -> dict:
             detail="Tài khoản không tồn tại."
         )
 
+    if db_user.meta_data and isinstance(db_user.meta_data, dict) and db_user.meta_data.get("disabled") is True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản của bạn đã bị khóa bởi quản trị viên."
+        )
+
     # 2. Kiểm tra cấu hình Firebase Web API Key hoặc chế độ phát triển (Mock)
     if settings.ENV == "development":
         # Cho phép đăng nhập bằng tài khoản nội bộ bằng mật khẩu "password" hoặc "admin123"
@@ -234,7 +240,10 @@ def get_user_profile(db: Session, user_id: int, current_user_id: Optional[int] =
         )
 
     # 2. Truy vấn danh sách video review của user này
-    user_videos = db.query(Video).filter(Video.reviewer_id == user_id).order_by(Video.created_at.desc()).all()
+    if current_user_id == user_id:
+        user_videos = db.query(Video).filter(Video.reviewer_id == user_id).order_by(Video.created_at.desc()).all()
+    else:
+        user_videos = db.query(Video).filter(Video.reviewer_id == user_id, Video.status == "approved").order_by(Video.created_at.desc()).all()
 
     # 3. Phân tích meta_data để lấy bio
     meta = user.meta_data or {}
@@ -370,6 +379,12 @@ def login_google_user(db: Session, data: GoogleLoginRequest) -> dict:
                     detail=f"Lỗi khi lưu thông tin người dùng Google vào local database: {str(e)}"
                 )
                 
+    if user and isinstance(user.meta_data, dict) and user.meta_data.get("disabled") is True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản của bạn đã bị khóa bởi quản trị viên."
+        )
+
     return {
         "access_token": data.id_token,
         "token_type": "bearer",
