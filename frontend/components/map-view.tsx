@@ -32,6 +32,7 @@ export function MapView({
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const hasInitialAutofitRef = useRef(false);
   const [tokenError, setTokenError] = useState(!hasValidToken);
 
   // Initialize Mapbox Map Instance
@@ -119,7 +120,7 @@ export function MapView({
 
     // Render new markers
     filteredRestaurants.forEach((res) => {
-      if (!res.lng || !res.lat) return;
+      if (!res.longitude || !res.latitude) return;
 
       // Create a premium custom marker wrapper element
       const el = document.createElement("div");
@@ -142,13 +143,13 @@ export function MapView({
         </div>
         <div class="marker-label">
           <span class="restaurant-name">${res.name}</span>
-          <span class="restaurant-rating">★ ${res.rating}</span>
+          <span class="restaurant-rating">★ ${res.rating_avg}</span>
         </div>
       `;
 
       // Set up Mapbox Marker
       const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([res.lng, res.lat])
+        .setLngLat([res.longitude, res.latitude])
         .addTo(map);
 
       // Marker click event to select restaurant
@@ -160,13 +161,13 @@ export function MapView({
       markersRef.current.push(marker);
     });
 
-    // Auto-fit map camera bounds to show all markers inside the viewport
-    if (filteredRestaurants.length > 0) {
+    // Auto-fit map camera bounds to show all markers inside the viewport ONLY on the initial page load
+    if (filteredRestaurants.length > 0 && !hasInitialAutofitRef.current) {
       const bounds = new mapboxgl.LngLatBounds();
       
       filteredRestaurants.forEach((res) => {
-        if (res.lng && res.lat) {
-          bounds.extend([res.lng, res.lat]);
+        if (res.longitude && res.latitude) {
+          bounds.extend([res.longitude, res.latitude]);
         }
       });
 
@@ -184,6 +185,8 @@ export function MapView({
         maxZoom: 15, // Cap maximum zoom (to prevent overzooming on a single pin)
         duration: 1200 // Smooth zoom animation duration
       });
+
+      hasInitialAutofitRef.current = true;
     }
   }, [filteredRestaurants, onSelectRestaurant]);
 
@@ -216,7 +219,7 @@ export function MapView({
 
     // Center map smoothly with offset padding
     map.easeTo({
-      center: [selectedRestaurant.lng, selectedRestaurant.lat],
+      center: [selectedRestaurant.longitude, selectedRestaurant.latitude],
       zoom: 15.5,
       duration: 1000,
       padding: { left: paddingLeft, right: 0, top: 0, bottom: paddingBottom }

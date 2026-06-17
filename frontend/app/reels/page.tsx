@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ReelCard } from "@/components/reel-card";
 import { Home, Camera, MessageCircle, Send, Heart, Smile, Music2, MapPin, X, ChevronRight, Bookmark, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { formatRelativeTime } from "@/lib/time";
+import { globalAppCache } from "@/lib/cache";
 
 interface Comment {
   id: string;
@@ -23,12 +26,15 @@ interface Comment {
   createdAt: string;
   likes: number;
   replies?: Comment[];
+  isLiked?: boolean;
 }
 
 const quickEmojis = ["🤤", "😍", "🔥", "👏", "💯"];
 
 export default function ReelsPage() {
   const { user, token } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
   const displayName = user?.full_name || "Khách";
   const displayUsername = user?.email ? user.email.split('@')[0] : "guest";
   const displayAvatar = user?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
@@ -36,8 +42,12 @@ export default function ReelsPage() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [reelsList, setReelsList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [reelsList, setReelsList] = useState<any[]>(() => {
+    return globalAppCache.reels || [];
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    return !globalAppCache.reels;
+  });
   const [activeComments, setActiveComments] = useState<Comment[]>([]);
   const [isFetchingComments, setIsFetchingComments] = useState(false);
   const [newCommentText, setNewCommentText] = useState("");
@@ -58,7 +68,11 @@ export default function ReelsPage() {
 
   const handleFollowToggleActiveReel = async () => {
     if (!token) {
-      alert("Vui lòng đăng nhập để thực hiện chức năng này.");
+      toast({
+        title: "Yêu cầu đăng nhập",
+        description: "Vui lòng đăng nhập để thực hiện chức năng này.",
+        variant: "destructive"
+      });
       router.push("/login");
       return;
     }
@@ -119,6 +133,9 @@ export default function ReelsPage() {
 
   useEffect(() => {
     const fetchReels = async () => {
+      if (!globalAppCache.reels) {
+        setIsLoading(true);
+      }
       try {
         const response = await fetch("/api/content/videos?post_type=video", {
           headers: token ? { "Authorization": `Bearer ${token}` } : {}
@@ -136,7 +153,8 @@ export default function ReelsPage() {
             },
             restaurant: {
               name: item.restaurant?.name || "Quán ăn ẩm thực",
-              address: item.restaurant?.address || ""
+              address: item.restaurant?.address || "",
+              ownerId: item.restaurant?.owner_id
             },
             video: item.video_url || "",
             thumbnail: item.thumbnail_url || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600",
@@ -154,6 +172,7 @@ export default function ReelsPage() {
             isLiked: item.is_liked || false
           }));
           setReelsList(mapped);
+          globalAppCache.reels = mapped;
         }
       } catch (err) {
         console.error("Lỗi khi tải reels từ API:", err);
@@ -239,7 +258,7 @@ export default function ReelsPage() {
               avatar: c.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
             },
             content: c.content,
-            createdAt: "Vừa xong",
+            createdAt: formatRelativeTime(c.created_at),
             likes: c.likes_count,
             replies: c.replies ? c.replies.map((r: any) => ({
               id: String(r.id),
@@ -250,7 +269,7 @@ export default function ReelsPage() {
                 avatar: r.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
               },
               content: r.content,
-              createdAt: "Vừa xong",
+              createdAt: formatRelativeTime(r.created_at),
               likes: r.likes_count
             })) : []
           }));
@@ -353,6 +372,26 @@ export default function ReelsPage() {
             <span className="font-medium text-muted-foreground/45">{comment.createdAt}</span>
             <button
               onClick={async () => {
+                const isLiked = !!comment.isLiked;
+                const nextLiked = !isLiked;
+                const nextLikes = nextLiked ? comment.likes + 1 : Math.max(0, comment.likes - 1);
+                
+                // Optimistic Update
+                setActiveComments(prev => {
+                  const updateLike = (cList: Comment[]): Comment[] => {
+                    return cList.map(c => {
+                      if (c.id === comment.id) {
+                        return { ...c, isLiked: nextLiked, likes: nextLikes };
+                      }
+                      if (c.replies && c.replies.length > 0) {
+                        return { ...c, replies: updateLike(c.replies) };
+                      }
+                      return c;
+                    });
+                  };
+                  return updateLike(prev);
+                });
+
                 try {
                   const response = await fetch(`/api/interact/comments/${comment.id}/like`, {
                     method: "POST",
@@ -366,7 +405,23 @@ export default function ReelsPage() {
                       const updateLike = (cList: Comment[]): Comment[] => {
                         return cList.map(c => {
                           if (c.id === comment.id) {
-                            return { ...c, likes: data.likes_count };
+                            return { ...c, isLiked: data.liked, likes: data.likes_count };
+                          }
+                          if (c.replies && c.replies.length > 0) {
+                            return { ...c, replies: updateLike(c.replies) };
+                          }
+                          return c;
+                        });
+                      };
+                      return updateLike(prev);
+                    });
+                  } else {
+                    // Rollback
+                    setActiveComments(prev => {
+                      const updateLike = (cList: Comment[]): Comment[] => {
+                        return cList.map(c => {
+                          if (c.id === comment.id) {
+                            return { ...c, isLiked: isLiked, likes: comment.likes };
                           }
                           if (c.replies && c.replies.length > 0) {
                             return { ...c, replies: updateLike(c.replies) };
@@ -379,11 +434,26 @@ export default function ReelsPage() {
                   }
                 } catch (err) {
                   console.error("Lỗi khi thích bình luận:", err);
+                  // Rollback
+                  setActiveComments(prev => {
+                    const updateLike = (cList: Comment[]): Comment[] => {
+                      return cList.map(c => {
+                        if (c.id === comment.id) {
+                          return { ...c, isLiked: isLiked, likes: comment.likes };
+                        }
+                        if (c.replies && c.replies.length > 0) {
+                          return { ...c, replies: updateLike(c.replies) };
+                        }
+                        return c;
+                      });
+                    };
+                    return updateLike(prev);
+                  });
                 }
               }}
               className="hover:text-orange-500 transition-colors flex items-center gap-0.5 cursor-pointer"
             >
-              <span>❤️ Thích</span>
+              <span>{comment.isLiked ? "❤️" : (comment.likes > 0 && comment.isLiked !== false ? "❤️" : "🤍")} Thích</span>
               {comment.likes > 0 && <span className="text-[8px] bg-primary/10 px-1 rounded-sm text-primary">{comment.likes}</span>}
             </button>
             <button
@@ -392,10 +462,36 @@ export default function ReelsPage() {
             >
               <span>💬 Phản hồi</span>
             </button>
-            {user && (user.id === Number(comment.userId) || user.role === "admin") && (
+            {user && (user.id === Number(comment.userId) || user.id === Number(activeReel.restaurant?.ownerId) || user.role === "admin") && (
               <button
                 onClick={async () => {
                   if (!confirm("Bạn có chắc chắn muốn xóa bình luận này không?")) return;
+                  
+                  const originalComments = [...activeComments];
+                  
+                  // Optimistic delete from screen
+                  setActiveComments(prev => {
+                    const removeComment = (cList: Comment[]): Comment[] => {
+                      return cList
+                        .filter(c => c.id !== comment.id)
+                        .map(c => {
+                          if (c.replies && c.replies.length > 0) {
+                            return { ...c, replies: removeComment(c.replies) };
+                          }
+                          return c;
+                        });
+                    };
+                    return removeComment(prev);
+                  });
+                  
+                  // Optimistic decrement in reels list count
+                  setReelsList(prev => prev.map(r => {
+                    if (r.id === activeReel.id) {
+                      return { ...r, comments: Math.max(0, r.comments - 1) };
+                    }
+                    return r;
+                  }));
+
                   try {
                     const response = await fetch(`/api/interact/comments/${comment.id}`, {
                       method: "DELETE",
@@ -403,32 +499,32 @@ export default function ReelsPage() {
                         "Authorization": `Bearer ${token}`
                       }
                     });
-                    if (response.ok) {
-                      setActiveComments(prev => {
-                        const removeComment = (cList: Comment[]): Comment[] => {
-                          return cList
-                            .filter(c => c.id !== comment.id)
-                            .map(c => {
-                              if (c.replies && c.replies.length > 0) {
-                                return { ...c, replies: removeComment(c.replies) };
-                              }
-                              return c;
-                            });
-                        };
-                        return removeComment(prev);
-                      });
+                    if (!response.ok) {
+                      // Rollback
+                      setActiveComments(originalComments);
                       setReelsList(prev => prev.map(r => {
                         if (r.id === activeReel.id) {
-                          return { ...r, comments: Math.max(0, r.comments - 1) };
+                          return { ...r, comments: r.comments + 1 };
                         }
                         return r;
                       }));
-                    } else {
                       const errData = await response.json();
-                      alert(errData.detail || "Không thể xóa bình luận.");
+                      toast({
+                        title: "Thao tác thất bại",
+                        description: errData.detail || "Không thể xóa bình luận.",
+                        variant: "destructive"
+                      });
                     }
                   } catch (err) {
                     console.error("Lỗi khi xóa bình luận:", err);
+                    // Rollback
+                    setActiveComments(originalComments);
+                    setReelsList(prev => prev.map(r => {
+                      if (r.id === activeReel.id) {
+                        return { ...r, comments: r.comments + 1 };
+                      }
+                      return r;
+                    }));
                   }
                 }}
                 className="hover:text-red-500 text-red-500/80 transition-colors cursor-pointer flex items-center gap-0.5"
@@ -555,6 +651,17 @@ export default function ReelsPage() {
                     return r;
                   }));
                 }}
+                onFollowToggle={(isFollowing) => {
+                  setReelsList(prev => prev.map(r => {
+                    if (r.reviewerId === reel.reviewerId) {
+                      return {
+                        ...r,
+                        user: { ...r.user, is_following: isFollowing }
+                      };
+                    }
+                    return r;
+                  }));
+                }}
                 onDelete={() => {
                   setReelsList(prev => {
                     const filtered = prev.filter(r => r.id !== reel.id);
@@ -600,10 +707,10 @@ export default function ReelsPage() {
                   size="sm" 
                   onClick={handleFollowToggleActiveReel}
                   className={cn(
-                    "h-7 text-xs font-extrabold px-4 rounded-full text-white hover:scale-105 active:scale-95 transition-all duration-300",
+                    "h-7 text-xs font-extrabold px-4 rounded-full hover:scale-105 active:scale-95 transition-all duration-300 border cursor-pointer",
                     activeReel.user.is_following 
-                      ? "bg-secondary text-foreground hover:bg-secondary/80 border border-border" 
-                      : "bg-orange-500 hover:bg-orange-600 text-white"
+                      ? "bg-secondary text-neutral-400 dark:text-neutral-500 hover:text-foreground border-neutral-200 dark:border-neutral-800" 
+                      : "bg-orange-500 hover:bg-orange-600 text-white border-orange-500/20"
                   )}
                 >
                   {activeReel.user.is_following ? "Đang theo dõi" : "Theo dõi"}

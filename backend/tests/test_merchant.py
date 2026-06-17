@@ -49,6 +49,7 @@ class BaseMerchantTest(unittest.TestCase):
         self.TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
         
         # 3. Tạo tất cả bảng cấu trúc DB
+        Base.metadata.drop_all(bind=self.engine)
         Base.metadata.create_all(bind=self.engine)
         
         # 4. Tạo một session DB cho các hàm test trực tiếp
@@ -120,6 +121,7 @@ class BaseMerchantTest(unittest.TestCase):
         self.verify_patcher.stop()
         self.db.close()
         Base.metadata.drop_all(bind=self.engine)
+        self.engine.dispose()
         app.dependency_overrides.clear()
         
         # Xóa file DB test sau khi hoàn tất
@@ -231,6 +233,31 @@ class TestMerchantServices(BaseMerchantTest):
         self.assertIsNone(none_m)
         self.assertEqual(clicks, 0)
         self.assertEqual(impressions, 0)
+
+    def test_update_menu_item_success(self):
+        merchant_in = schemas.MerchantCreate(name="Quán Bún", latitude=10.78, longitude=106.68)
+        db_merchant = services.create_merchant(self.db, merchant_in, self.owner.id)
+        menu_in = schemas.MenuCreate(dish_name="Bún Bò", price=35000, is_available=True)
+        db_menu = services.create_menu_item(self.db, db_merchant.id, menu_in)
+
+        # Cập nhật món ăn
+        update_in = schemas.MenuUpdate(dish_name="Bún Bò Huế Đặc Biệt", price=45000, is_available=False)
+        updated = services.update_menu_item(self.db, db_menu, update_in)
+
+        self.assertEqual(updated.dish_name, "Bún Bò Huế Đặc Biệt")
+        self.assertEqual(updated.price, 45000)
+        self.assertFalse(updated.is_available)
+
+    def test_delete_menu_item_success(self):
+        merchant_in = schemas.MerchantCreate(name="Quán Nước", latitude=10.78, longitude=106.68)
+        db_merchant = services.create_merchant(self.db, merchant_in, self.owner.id)
+        menu_in = schemas.MenuCreate(dish_name="Trà Đá", price=5000, is_available=True)
+        db_menu = services.create_menu_item(self.db, db_merchant.id, menu_in)
+
+        # Xóa món ăn
+        services.delete_menu_item(self.db, db_menu)
+        fetched = services.get_menu_item(self.db, db_menu.id)
+        self.assertIsNone(fetched)
 
 
 class TestMerchantRouter(BaseMerchantTest):
@@ -434,6 +461,80 @@ class TestMerchantRouter(BaseMerchantTest):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["message"], "Campaign updated")
         self.assertTrue(response.json()["is_active"])
+
+    def test_update_menu_endpoint_as_owner(self):
+        merchant_in = schemas.MerchantCreate(name="Bánh Mì Huỳnh Hoa", latitude=10.77, longitude=106.69)
+        db_merchant = services.create_merchant(self.db, merchant_in, self.owner.id)
+        menu_in = schemas.MenuCreate(dish_name="Bánh Mì Đặc Biệt", price=55000, is_available=True)
+        db_menu = services.create_menu_item(self.db, db_merchant.id, menu_in)
+
+        headers = {"Authorization": "Bearer mock_token_test_owner_uid"}
+        payload = {
+            "dish_name": "Bánh Mì Thượng Hạng",
+            "price": 60000,
+            "is_available": False
+        }
+        response = self.client.patch(
+            f"/api/merchant/{db_merchant.id}/menus/{db_menu.id}",
+            json=payload,
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        res_data = response.json()
+        self.assertEqual(res_data["dish_name"], "Bánh Mì Thượng Hạng")
+        self.assertEqual(res_data["price"], 60000)
+        self.assertFalse(res_data["is_available"])
+
+    def test_update_menu_endpoint_as_non_owner_forbidden(self):
+        merchant_in = schemas.MerchantCreate(name="Bánh Mì Huỳnh Hoa", latitude=10.77, longitude=106.69)
+        db_merchant = services.create_merchant(self.db, merchant_in, self.owner.id)
+        menu_in = schemas.MenuCreate(dish_name="Bánh Mì Đặc Biệt", price=55000, is_available=True)
+        db_menu = services.create_menu_item(self.db, db_merchant.id, menu_in)
+
+        headers = {"Authorization": "Bearer mock_token_test_other_merchant_uid"}
+        payload = {
+            "dish_name": "Bánh Mì Thượng Hạng",
+            "price": 60000
+        }
+        response = self.client.patch(
+            f"/api/merchant/{db_merchant.id}/menus/{db_menu.id}",
+            json=payload,
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "Chỉ chủ quán mới có quyền cập nhật món ăn")
+
+    def test_delete_menu_endpoint_as_owner(self):
+        merchant_in = schemas.MerchantCreate(name="Hủ Tiếu Nam Vang", latitude=10.77, longitude=106.69)
+        db_merchant = services.create_merchant(self.db, merchant_in, self.owner.id)
+        menu_in = schemas.MenuCreate(dish_name="Hủ Tiếu Khô", price=45000, is_available=True)
+        db_menu = services.create_menu_item(self.db, db_merchant.id, menu_in)
+
+        headers = {"Authorization": "Bearer mock_token_test_owner_uid"}
+        response = self.client.delete(
+            f"/api/merchant/{db_merchant.id}/menus/{db_menu.id}",
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["message"], "Menu item deleted successfully")
+
+        # Kiểm tra không tìm thấy trong DB nữa
+        fetched = services.get_menu_item(self.db, db_menu.id)
+        self.assertIsNone(fetched)
+
+    def test_delete_menu_endpoint_as_non_owner_forbidden(self):
+        merchant_in = schemas.MerchantCreate(name="Hủ Tiếu Nam Vang", latitude=10.77, longitude=106.69)
+        db_merchant = services.create_merchant(self.db, merchant_in, self.owner.id)
+        menu_in = schemas.MenuCreate(dish_name="Hủ Tiếu Khô", price=45000, is_available=True)
+        db_menu = services.create_menu_item(self.db, db_merchant.id, menu_in)
+
+        headers = {"Authorization": "Bearer mock_token_test_other_merchant_uid"}
+        response = self.client.delete(
+            f"/api/merchant/{db_merchant.id}/menus/{db_menu.id}",
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "Chỉ chủ quán mới có quyền xóa món ăn")
 
 
 if __name__ == "__main__":

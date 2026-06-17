@@ -96,10 +96,10 @@ export function CategoryFilter({ activeCategory, onCategoryChange }: CategoryFil
         {categories.map((category) => (
           <button
             key={category.id}
-            onClick={() => onCategoryChange(category.id)}
+            onClick={() => onCategoryChange(category.name)}
             className={cn(
               "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 hover:scale-102 active:scale-98",
-              activeCategory === category.id
+              activeCategory === category.name
                 ? "bg-primary text-primary-foreground shadow-xs"
                 : "bg-secondary/60 text-secondary-foreground hover:bg-secondary"
             )}

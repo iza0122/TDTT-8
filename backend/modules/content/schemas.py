@@ -19,6 +19,7 @@ class VideoCreate(BaseModel):
     description: Optional[str] = None
     tagged_merchant_id: Optional[int] = None
     post_type: Optional[str] = "video"
+    rating: Optional[int] = 5
 
 class VideoUserResponse(BaseModel):
     id: int
@@ -36,6 +37,7 @@ class VideoMerchantResponse(BaseModel):
     address: Optional[str] = None
     latitude: float
     longitude: float
+    owner_id: int
 
     class Config:
         from_attributes = True
@@ -85,7 +87,7 @@ class VideoResponse(BaseModel):
             "status": data.status,
             "likes_count": data.likes_count,
             "shares_count": getattr(data, "shares_count", 0),
-            "comments_count": len(getattr(data, "comments", [])) if hasattr(data, "comments") and getattr(data, "comments", []) else 0,
+            "comments_count": getattr(data, "comments_count", 0),
             "reviewer_id": data.reviewer_id,
             "tagged_merchant_id": data.tagged_merchant_id,
             "reup_from_id": getattr(data, "reup_from_id", None),
@@ -111,7 +113,8 @@ class VideoResponse(BaseModel):
                 "name": merchant.name,
                 "address": merchant.address or "",
                 "latitude": merchant.latitude,
-                "longitude": merchant.longitude
+                "longitude": merchant.longitude,
+                "owner_id": merchant.owner_id
             }
         else:
             obj_dict["restaurant"] = None

@@ -96,3 +96,15 @@ def login_google(
     db: Session = Depends(get_db)
 ):
     return services.login_google_user(db=db, data=data)
+
+@router.delete(
+    "/users/me",
+    status_code=status.HTTP_200_OK,
+    summary="Xóa tài khoản của chính mình",
+    description="Xóa vĩnh viễn tài khoản người dùng hiện tại cùng toàn bộ dữ liệu liên quan (merchants, menus, videos, likes, v.v.)."
+)
+def delete_my_account(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return services.delete_user_account(db=db, user=current_user)

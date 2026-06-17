@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     CLOUDFLARE_R2_PUBLIC_URL: str = ""
 
     # ==========================================
+    # CẤU HÌNH HUGGING FACE AI INTEGRATION
+    # ==========================================
+    HUGGINGFACE_API_KEY: str = "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"
+    HUGGINGFACE_MODEL_ID: str = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
+
+    # ==========================================
     # CẤU HÌNH FIREBASE / GOOGLE JSON
     # ==========================================
     FIREBASE_CONFIG_PATH: str = str(CONFIG_DIR / "firebase_config.json")

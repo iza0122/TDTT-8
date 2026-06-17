@@ -1,13 +1,15 @@
 "use client";
  
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Heart, MessageCircle, Share2, Music2, Play, Pause, MapPin, MoreVertical, Volume2, VolumeX, Trash2, EyeOff, Copy, Repeat } from "lucide-react";
+import { Heart, MessageCircle, Share2, Music2, Play, Pause, MapPin, MoreVertical, Volume2, VolumeX, Trash2, EyeOff, Copy } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, copyToClipboard } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { LoginRequiredDialog } from "@/components/login-required-dialog";
 
 interface ReelCardProps {
   reel: {
@@ -22,6 +24,7 @@ interface ReelCardProps {
     restaurant: {
       name: string;
       address: string;
+      ownerId?: number;
     };
     video: string;
     thumbnail?: string;
@@ -45,18 +48,20 @@ interface ReelCardProps {
   onMuteToggle: () => void;
   onLikeToggle?: (isLiked: boolean, likesCount: number) => void;
   onShareUpdate?: (sharesCount: number) => void;
+  onFollowToggle?: (isFollowing: boolean) => void;
   onDelete?: () => void;
 }
 
-export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = false, isMuted, onMuteToggle, onLikeToggle, onShareUpdate, onDelete }: ReelCardProps) {
+export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = false, isMuted, onMuteToggle, onLikeToggle, onShareUpdate, onFollowToggle, onDelete }: ReelCardProps) {
   const { token, user } = useAuth();
+  const { toast } = useToast();
   const [showMenu, setShowMenu] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
   const [isLiked, setIsLiked] = useState(reel.isLiked || false);
   const [likes, setLikes] = useState(reel.likes);
   const [isPlaying, setIsPlaying] = useState(isActive);
   const [isFollowing, setIsFollowing] = useState(reel.user.is_following || false);
   const [shares, setShares] = useState(reel.shares || 0);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   useEffect(() => {
     setIsLiked(reel.isLiked || false);
@@ -65,6 +70,14 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
     setShares(reel.shares || 0);
   }, [reel]);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleAuthenticatedAction = useCallback((action: () => void) => {
+    if (!token) {
+      setShowLoginDialog(true);
+      return;
+    }
+    action();
+  }, [token]);
 
   // Sync play/pause with isActive and isPlaying states
   useEffect(() => {
@@ -88,48 +101,56 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
     onMuteToggle();
   };
 
-  const handleLike = async () => {
-    if (!token) return;
-    try {
-      const nextLiked = !isLiked;
-      const nextLikes = nextLiked ? likes + 1 : likes - 1;
-      
-      // Update local state instantly for snappy UX
-      setIsLiked(nextLiked);
-      setLikes(nextLikes);
-      if (onLikeToggle) {
-        onLikeToggle(nextLiked, nextLikes);
-      }
-
-      const res = await fetch(`/api/interact/videos/${reel.id}/like`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setIsLiked(data.liked);
-        setLikes(data.likes_count);
+  const handleLike = () => {
+    handleAuthenticatedAction(async () => {
+      try {
+        const nextLiked = !isLiked;
+        const nextLikes = nextLiked ? likes + 1 : likes - 1;
+        
+        // Update local state instantly for snappy UX
+        setIsLiked(nextLiked);
+        setLikes(nextLikes);
         if (onLikeToggle) {
-          onLikeToggle(data.liked, data.likes_count);
+          onLikeToggle(nextLiked, nextLikes);
         }
+
+        const res = await fetch(`/api/interact/videos/${reel.id}/like`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setIsLiked(data.liked);
+          setLikes(data.likes_count);
+          if (onLikeToggle) {
+            onLikeToggle(data.liked, data.likes_count);
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi khi thả tim Reels:", err);
       }
-    } catch (err) {
-      console.error("Lỗi khi thả tim Reels:", err);
-    }
+    });
   };
 
-  const canDelete = user && (user.id === reel.reviewerId || user.role === "admin");
+  const canDelete = user && (user.id === reel.reviewerId || user.id === reel.restaurant.ownerId || user.role === "admin");
   const isMe = user && user.id === reel.reviewerId;
 
   const handleFollow = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!token) {
-      alert("Vui lòng đăng nhập để theo dõi reviewer này.");
+      toast({
+        title: "Yêu cầu đăng nhập",
+        description: "Vui lòng đăng nhập để theo dõi reviewer này.",
+        variant: "destructive"
+      });
       return;
     }
     if (!reel.reviewerId || isMe) return;
+
+    const previousFollowing = isFollowing;
+    setIsFollowing(true); // Optimistic Update
 
     try {
       const endpoint = `/api/interact/users/${reel.reviewerId}/follow`;
@@ -140,16 +161,28 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
         }
       });
       if (res.ok) {
-        setIsFollowing(true);
+        const data = await res.json();
+        setIsFollowing(data.is_following);
+        if (onFollowToggle) {
+          onFollowToggle(data.is_following);
+        }
+      } else {
+        setIsFollowing(previousFollowing); // Rollback on error
+        const err = await res.json();
+        toast({
+          title: "Thao tác thất bại",
+          description: err.detail || "Không thể theo dõi.",
+          variant: "destructive"
+        });
       }
     } catch (err) {
+      setIsFollowing(previousFollowing); // Rollback on network error
       console.error("Lỗi khi theo dõi:", err);
     }
   };
 
   const handleCopyLinkShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowShareMenu(false);
     try {
       const headers: Record<string, string> = {};
       if (token) {
@@ -169,58 +202,33 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
 
       if (typeof window !== "undefined") {
         const shareLink = `${window.location.origin}/reels?id=${reel.id}`;
-        await navigator.clipboard.writeText(shareLink);
-        alert("Đã sao chép liên kết chia sẻ! 🔗");
+        const copied = await copyToClipboard(shareLink);
+        if (copied) {
+          toast({
+            title: "Đã sao chép! 🔗",
+            description: "Đã sao chép liên kết chia sẻ của Reel này.",
+            variant: "success"
+          });
+        } else {
+          toast({
+            title: "Thao tác thất bại ❌",
+            description: "Không thể tự động sao chép liên kết. Vui lòng sao chép thủ công: " + shareLink,
+            variant: "destructive"
+          });
+        }
       }
     } catch (err) {
       console.error("Lỗi khi sao chép liên kết chia sẻ:", err);
     }
   };
 
-  const handleReupPost = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowShareMenu(false);
-    if (!token) {
-      alert("Vui lòng đăng nhập để chia sẻ lại video lên bảng tin.");
-      return;
-    }
-
-    if (!confirm("Bạn có chắc muốn chia sẻ lại video này lên bảng tin của mình không?")) return;
-
-    try {
-      const res = await fetch(`/api/content/videos/${reel.id}/reup`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        alert("Đã chia sẻ lại video lên bảng tin của bạn! 🔁");
-        
-        // Trigger share count update in DB and locally
-        const shareRes = await fetch(`/api/interact/videos/${reel.id}/share`, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (shareRes.ok) {
-          const shareData = await shareRes.json();
-          setShares(shareData.shares_count);
-          if (onShareUpdate) {
-            onShareUpdate(shareData.shares_count);
-          }
-        }
-      } else {
-        const err = await res.json();
-        alert(err.detail || "Không thể chia sẻ lại video.");
-      }
-    } catch (err) {
-      console.error("Lỗi khi chia sẻ lại:", err);
-    }
-  };
-
   const handleHidePost = async () => {
     if (!token) {
-      alert("Vui lòng đăng nhập để ẩn bài viết.");
+      toast({
+        title: "Yêu cầu đăng nhập",
+        description: "Vui lòng đăng nhập để ẩn bài viết.",
+        variant: "destructive"
+      });
       return;
     }
     if (!confirm("Bạn có chắc chắn muốn ẩn bài viết này không? Nó sẽ không hiển thị trên bảng tin của bạn nữa.")) return;
@@ -233,40 +241,53 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
         }
       });
       if (response.ok) {
-        alert("Đã ẩn bài viết.");
+        toast({
+          title: "Đã ẩn bài viết",
+          description: "Bài viết sẽ không hiển thị trên bảng tin của bạn nữa.",
+          variant: "success"
+        });
         if (onDelete) {
           onDelete(); // Trực tiếp xóa khỏi danh sách local feed
         }
       } else {
         const errData = await response.json();
-        alert(errData.detail || "Không thể ẩn bài viết.");
+        toast({
+          title: "Thao tác thất bại",
+          description: errData.detail || "Không thể ẩn bài viết.",
+          variant: "destructive"
+        });
       }
     } catch (err) {
       console.error("Lỗi khi ẩn bài viết:", err);
     }
   };
 
-  const handleDeleteReel = async () => {
-    if (!token) return;
-    if (!confirm("Bạn có chắc chắn muốn xóa reel này không?")) return;
-    try {
-      const response = await fetch(`/api/content/videos/${reel.id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
+  const handleDeleteReel = () => {
+    handleAuthenticatedAction(async () => {
+      if (!confirm("Bạn có chắc chắn muốn xóa reel này không?")) return;
+      try {
+        const response = await fetch(`/api/content/videos/${reel.id}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (response.ok) {
+          if (onDelete) {
+            onDelete();
+          }
+        } else {
+          const errData = await response.json();
+          toast({
+            title: "Thao tác thất bại",
+            description: errData.detail || "Không thể xóa reel.",
+            variant: "destructive"
+          });
         }
-      });
-      if (response.ok) {
-        if (onDelete) {
-          onDelete();
-        }
-      } else {
-        const errData = await response.json();
-        alert(errData.detail || "Không thể xóa reel.");
+      } catch (err) {
+        console.error("Lỗi khi xóa reel:", err);
       }
-    } catch (err) {
-      console.error("Lỗi khi xóa reel:", err);
-    }
+    });
   };
 
   const formatNumber = (num: number) => {
@@ -355,11 +376,6 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
               {/* User Info */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-white font-extrabold text-sm drop-shadow-md">@{reel.user.username}</span>
-                {reel.reupFromUser && (
-                  <span className="text-orange-400 font-bold text-[10px] bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-xs flex items-center gap-1 shadow-xs border border-white/5">
-                    🔁 @{reel.reupFromUser.username}
-                  </span>
-                )}
               </div>
 
               {/* Caption */}
@@ -399,10 +415,10 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
           {/* Like */}
           <button onClick={handleLike} className="flex flex-col items-center gap-1 group">
             <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md",
+              "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md",
               isLiked 
                 ? "bg-red-500/20 border border-red-500/50 text-red-500 scale-105" 
-                : "bg-white/15 border border-white/20 text-white hover:bg-red-500 hover:border-red-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-red-500 md:hover:border-red-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-red-500 dark:md:hover:border-red-500"
+                : "bg-white/15 border border-white/20 text-white hover:bg-red-50 hover:border-red-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-red-500 md:hover:border-red-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-red-500 dark:md:hover:border-red-500"
             )}>
               <Heart
                 className={cn(
@@ -417,7 +433,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
           {/* Comment */}
           <button onClick={onCommentClick} className="flex flex-col items-center gap-1 group">
             <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md",
+              "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md",
               isCommentsOpen 
                 ? "bg-orange-500/20 border border-orange-500/50 text-orange-500 scale-105" 
                 : "bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500"
@@ -428,58 +444,20 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
           </button>
 
           {/* Share */}
-          <div className="relative flex flex-col items-center group">
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowShareMenu(!showShareMenu);
-              }} 
-              className="flex flex-col items-center gap-1 cursor-pointer"
-            >
-              <div className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-lg backdrop-blur-md",
-                showShareMenu
-                  ? "bg-orange-500 border border-orange-500 text-white"
-                  : "bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500"
-              )}>
-                <Share2 className="w-5 h-5 transition-all duration-300" />
-              </div>
-              <span className="text-white md:text-neutral-800 dark:md:text-white text-[10px] font-extrabold tracking-wide drop-shadow-sm">{formatNumber(shares)}</span>
-            </button>
-            
-            {showShareMenu && (
-              <>
-                <div 
-                  className="fixed inset-0 z-30" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowShareMenu(false);
-                  }}
-                />
-                <div className="absolute right-12 bottom-0 w-44 bg-card border border-border/80 rounded-xl shadow-lg py-1.5 z-40 animate-in fade-in slide-in-from-right-1 duration-150 space-y-1">
-                  <button
-                    onClick={handleCopyLinkShare}
-                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>Sao chép liên kết</span>
-                  </button>
-                  <button
-                    onClick={handleReupPost}
-                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer border-t border-border/10 pt-1"
-                  >
-                    <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>Chia sẻ lên bảng tin</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <button 
+            onClick={handleCopyLinkShare}
+            className="flex flex-col items-center gap-1 group cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-lg backdrop-blur-md bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500">
+              <Share2 className="w-5 h-5 transition-all duration-300" />
+            </div>
+            <span className="text-white md:text-neutral-800 dark:md:text-white text-[10px] font-extrabold tracking-wide drop-shadow-sm">{formatNumber(shares)}</span>
+          </button>
 
           {/* Mute/Unmute sound option */}
           {isVideoFile && (
             <button onClick={toggleMute} className="flex flex-col items-center group">
-              <div className="w-10 h-10 bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md">
+              <div className="w-10 h-10 bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500 rounded-full flex items-center justify-center transition-all duration-150 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md">
                 {isMuted ? (
                   <VolumeX className="w-5 h-5 group-hover:scale-108 transition-all duration-300" />
                 ) : (
@@ -495,7 +473,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
               <button 
                 onClick={() => setShowMenu(!showMenu)}
                 className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md",
+                  "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer shadow-lg backdrop-blur-md",
                   showMenu 
                     ? "bg-orange-500/20 border border-orange-500/50 text-orange-500 scale-105" 
                     : "bg-white/15 border border-white/20 text-white hover:bg-orange-500 hover:border-orange-500 hover:text-white md:bg-neutral-100 md:border-neutral-200/85 md:text-neutral-700 md:hover:bg-orange-500 md:hover:border-orange-500 md:hover:text-white dark:md:bg-white/10 dark:md:border-white/10 dark:md:text-white dark:md:hover:bg-orange-500 dark:md:hover:border-orange-500"
@@ -541,6 +519,7 @@ export function ReelCard({ reel, isActive, onCommentClick, isCommentsOpen = fals
         </div>
 
       </div>
+      <LoginRequiredDialog isOpen={showLoginDialog} onClose={() => setShowLoginDialog(false)} />
     </div>
   );
 }

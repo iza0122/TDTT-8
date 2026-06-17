@@ -37,8 +37,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
 
-  const publicPaths = ["/login", "/register", "/forgot-password", "/terms", "/privacy"];
-  const isPublicPath = publicPaths.includes(pathname || "");
+  const publicPaths = ["/", "/reels", "/map", "/login", "/register", "/forgot-password", "/terms", "/privacy"];
+  
+  const isMerchantDashboardPath = [
+    "/merchant",
+    "/merchant/menu",
+    "/merchant/profile",
+    "/merchant/promotions",
+    "/merchant/reviews",
+    "/merchant/settings",
+    "/merchant/add-restaurant"
+  ].some(path => (pathname || "").startsWith(path));
+
+  const isPublicPath = publicPaths.includes(pathname || "") || ((pathname || "").startsWith("/merchant/") && !isMerchantDashboardPath);
 
   useEffect(() => {
     // Load state from localStorage on mount
@@ -49,23 +60,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (storedToken && storedUser) {
         // Check if token is expired on mount
         try {
-          const base64Url = storedToken.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          const payload = JSON.parse(window.atob(base64));
-          const exp = payload.exp * 1000;
-          const isExpired = exp < Date.now();
+          if (!storedToken.startsWith("mock_token_")) {
+            const base64Url = storedToken.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const payload = JSON.parse(window.atob(base64));
+            const exp = payload.exp * 1000;
+            const isExpired = exp < Date.now();
 
-          if (isExpired) {
-            const storedRefreshToken = localStorage.getItem("refresh_token");
-            if (!storedRefreshToken) {
-              console.warn("[useAuth] Token is expired on mount and no refresh token, clearing session...");
-              localStorage.removeItem("token");
-              localStorage.removeItem("refresh_token");
-              localStorage.removeItem("user");
-              setToken(null);
-              setUser(null);
-              router.replace("/login");
-              return;
+            if (isExpired) {
+              const storedRefreshToken = localStorage.getItem("refresh_token");
+              if (!storedRefreshToken) {
+                console.warn("[useAuth] Token is expired on mount and no refresh token, clearing session...");
+                localStorage.removeItem("token");
+                localStorage.removeItem("refresh_token");
+                localStorage.removeItem("user");
+                setToken(null);
+                setUser(null);
+                router.replace("/login");
+                return;
+              }
             }
           }
         } catch (e) {
@@ -80,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [pathname]);
 
   // Overriding window.fetch globally to intercept API requests and refresh expired tokens
   useEffect(() => {
@@ -91,6 +104,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedRefreshToken = localStorage.getItem("refresh_token");
 
       if (storedToken) {
+        if (storedToken.startsWith("mock_token_")) {
+          return nativeFetch(input, init);
+        }
         try {
           // Parse JWT expiration without external libraries
           const base64Url = storedToken.split('.')[1];

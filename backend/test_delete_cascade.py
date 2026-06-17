@@ -45,7 +45,7 @@ def test_delete_cascade():
             thumbnail_url="https://pub-cf.foodiegram.dev/thumbnails/test-delete-cascade.jpg",
             description="Mô tả bài viết thử nghiệm xóa cascade.",
             reviewer_id=owner.id,
-            tagged_merchant_id=merchant_id,
+            tagged_merchant_id=None,
             post_type="video",
             status="pending"
         )

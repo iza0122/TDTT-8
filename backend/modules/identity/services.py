@@ -68,7 +68,7 @@ def register_user(db: Session, data: RegisterRequest) -> User:
         email=email,
         full_name=full_name,
         avatar_url=data.avatar_url,
-        role="reviewer",
+        role=data.role or "reviewer",
         meta_data={"phone_number": data.phone_number} if data.phone_number else None
     )
 
@@ -115,7 +115,18 @@ def login_user(db: Session, data: LoginRequest) -> dict:
             detail="Tài khoản không tồn tại."
         )
 
-    # 2. Kiểm tra cấu hình Firebase Web API Key
+    # 2. Kiểm tra cấu hình Firebase Web API Key hoặc chế độ phát triển (Mock)
+    if settings.ENV == "development":
+        # Cho phép đăng nhập bằng tài khoản nội bộ bằng mật khẩu "password" hoặc "admin123"
+        if data.password in ("password", "admin123"):
+            mock_token = f"mock_token_{db_user.firebase_uid}"
+            print(f"[IDENTITY] [DEV MOCK] Đăng nhập thành công tài khoản mock: {username}")
+            return {
+                "access_token": mock_token,
+                "refresh_token": "mock_refresh_token",
+                "user": db_user
+            }
+
     api_key = settings.FIREBASE_WEB_API_KEY
     
     if not api_key:
@@ -244,19 +255,16 @@ def get_user_profile(db: Session, user_id: int, current_user_id: Optional[int] =
     # 4. Tính toán likes nhận được
     likes_received = sum(video.likes_count for video in user_videos)
 
-    # 5. Lấy danh sách video đã thích từ bảng Likes
+    # 5. Lấy danh sách video đã thích từ bảng Likes bằng JOIN
     from backend.core.all_models import Like
-    liked_relations = db.query(Like).filter(Like.user_id == user_id).all()
-    liked_videos = [relation.video for relation in liked_relations if relation.video]
+    liked_videos = db.query(Video).join(Like, Like.video_id == Video.id).filter(Like.user_id == user_id).all()
 
     # 6. Lấy danh sách video đã lưu (Lấy ngẫu nhiên vài video từ người khác để hiển thị)
     saved_videos = db.query(Video).filter(Video.reviewer_id != user_id).limit(4).all()
     saved_count = len(saved_videos)
 
-    # 7. Lấy danh sách video đã ẩn từ bảng HiddenVideo
-    hidden_relations = db.query(HiddenVideo.video_id).filter(HiddenVideo.user_id == user_id).all()
-    hidden_ids = [r[0] for r in hidden_relations]
-    hidden_videos = db.query(Video).filter(Video.id.in_(hidden_ids)).all() if hidden_ids else []
+    # 7. Lấy danh sách video đã ẩn từ bảng HiddenVideo bằng JOIN
+    hidden_videos = db.query(Video).join(HiddenVideo, HiddenVideo.video_id == Video.id).filter(HiddenVideo.user_id == user_id).all()
 
     return UserProfileResponse(
         id=user.id,
@@ -367,3 +375,49 @@ def login_google_user(db: Session, data: GoogleLoginRequest) -> dict:
         "token_type": "bearer",
         "user": user
     }
+
+def delete_user_account(db: Session, user: User):
+    """
+    Xóa tài khoản người dùng và thực hiện cascade delete toàn bộ dữ liệu liên quan
+    để tránh vi phạm ràng buộc khoá ngoại (Merchants, Menus, Campaigns, Videos, Likes, Comments, v.v.).
+    """
+    from backend.core.all_models import Merchant, Video, UserFollow, HiddenVideo, Like, Comment, CommentLike, UserShare
+
+    # 1. Với các quán ăn (Merchants) của người dùng:
+    # Set tagged_merchant_id = None cho các video gắn thẻ các quán này
+    merchant_ids = [m.id for m in user.merchants]
+    if merchant_ids:
+        db.query(Video).filter(Video.tagged_merchant_id.in_(merchant_ids)).update({Video.tagged_merchant_id: None}, synchronize_session=False)
+
+    # 2. Với các bài viết (Videos) của người dùng:
+    # Set reup_from_id = None cho bất kỳ video nào reup từ video của người dùng này
+    user_video_ids = [v.id for v in user.videos]
+    if user_video_ids:
+        db.query(Video).filter(Video.reup_from_id.in_(user_video_ids)).update({Video.reup_from_id: None}, synchronize_session=False)
+
+    # 3. Xóa các bản ghi liên kết trung gian
+    db.query(HiddenVideo).filter(HiddenVideo.user_id == user.id).delete(synchronize_session=False)
+    db.query(UserFollow).filter((UserFollow.follower_id == user.id) | (UserFollow.following_id == user.id)).delete(synchronize_session=False)
+    db.query(UserShare).filter(UserShare.user_id == user.id).delete(synchronize_session=False)
+
+    # 4. Xóa các bài viết của người dùng (nó sẽ cascade xóa likes, comments tương ứng)
+    for video in user.videos:
+        db.delete(video)
+
+    # 5. Xóa các quán ăn của người dùng (nó sẽ cascade xóa menus, campaigns tương ứng)
+    for merchant in user.merchants:
+        db.delete(merchant)
+
+    # 6. Xóa khỏi Firebase Auth nếu có UID
+    if user.firebase_uid:
+        try:
+            auth.delete_user(user.firebase_uid)
+            print(f"[IDENTITY] Đã xóa user {user.email} khỏi Firebase Auth.")
+        except Exception as e:
+            print(f"[IDENTITY] Cảnh báo: Không thể xóa user khỏi Firebase Auth: {e}")
+
+    # 7. Cuối cùng, xóa chính user đó
+    db.delete(user)
+    db.commit()
+
+    return {"status": "success", "message": "Tài khoản và dữ liệu liên quan đã được xóa sạch."}

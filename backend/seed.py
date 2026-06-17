@@ -34,6 +34,36 @@ try:
 except Exception:
     pass
 
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE videos ADD COLUMN rating INTEGER DEFAULT 5 NOT NULL"))
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE videos ADD COLUMN merchant_response TEXT"))
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE campaigns ADD COLUMN description TEXT"))
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE campaigns ADD COLUMN start_date TIMESTAMP"))
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE campaigns ADD COLUMN end_date TIMESTAMP"))
+except Exception:
+    pass
+
 # Tạo các bảng mới (như user_shares, user_follows, hidden_videos) nếu chưa tồn tại
 Base.metadata.create_all(bind=engine)
 
@@ -197,7 +227,7 @@ def seed_database():
         sample_merchants = db.query(Merchant).limit(10).all()
         
         video_details = [
-            ("Review Phở bò cực đỉnh Quận 1", "https://assets.mixkit.co/videos/preview/mixkit-chef-preparing-a-fresh-vegetable-salad-41582-large.mp4", "Nước dùng ngọt thanh cực kỳ ngon, sườn bò mềm tan.", "video"),
+            ("Review Phở bò cực đỉnh Quận 1", "https://vjs.zencdn.net/v/oceans.mp4", "Nước dùng ngọt thanh cực kỳ ngon, sườn bò mềm tan.", "video"),
             ("Bánh mì giòn rụm chỉ 25k đông khách nhất Q3", "https://images.unsplash.com/photo-1509722747041-616f39b57569?w=800", "Chỗ này nổi tiếng giòn thơm ngon, ăn một ổ là no nê cả buổi sáng.", "image"),
             ("Cơm Tấm sườn nướng siêu to khổng lồ", "https://assets.mixkit.co/videos/preview/mixkit-pouring-sauce-on-a-meal-41584-large.mp4", "Sườn nướng thơm phức mật ong ăn kèm chả trứng dai giòn sần sật.", "video"),
             ("Hủ tiếu khô độc lạ Nam Bộ cực kỳ đắt khách", "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800", "Nước sốt khô sền sệt đậm đà, tôm tươi giòn ngọt lịm.", "image"),
@@ -218,8 +248,11 @@ def seed_database():
                 description=desc,
                 post_type=p_type,
                 likes_count=0,
+                rating=random.randint(3, 5),
+                merchant_response=None,
                 reviewer_id=random.choice([users[1].id, users[2].id]),
-                tagged_merchant_id=sample_merchants[idx].id if idx < len(sample_merchants) else None
+                tagged_merchant_id=sample_merchants[idx].id if idx < len(sample_merchants) else None,
+                status="approved"
             )
             db.add(video)
             videos.append(video)
@@ -285,9 +318,42 @@ def seed_database():
         print("\n--- Creating advertisement campaigns ---")
         # Phục vụ thuật toán trộn Feed ở tuần sau
         campaigns = [
-            Campaign(merchant_id=sample_merchants[0].id, title="Đại tiệc siêu sale phở tái nạm", video_url="https://assets.mixkit.co/videos/preview/mixkit-chef-preparing-a-fresh-vegetable-salad-41582-large.mp4", thumbnail_url="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400", is_active=True, impressions_count=120, clicks_count=15),
-            Campaign(merchant_id=sample_merchants[1].id, title="Bánh mì tặng kèm trà đào giải nhiệt", video_url="https://assets.mixkit.co/videos/preview/mixkit-cutting-slices-of-fresh-bread-41595-large.mp4", thumbnail_url="https://images.unsplash.com/photo-1509722747041-616f39b57569?w=400", is_active=True, impressions_count=85, clicks_count=8),
-            Campaign(merchant_id=sample_merchants[2].id, title="Combo cơm tấm sườn chả chỉ 39k", video_url="https://assets.mixkit.co/videos/preview/mixkit-pouring-sauce-on-a-meal-41584-large.mp4", thumbnail_url="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400", is_active=True, impressions_count=230, clicks_count=42),
+            Campaign(
+                merchant_id=sample_merchants[0].id, 
+                title="Đại tiệc siêu sale phở tái nạm", 
+                description="Giảm ngay 20% trên mỗi tô phở đặc biệt dành cho thực khách đặt hàng sớm nhất trong ngày.",
+                video_url="https://assets.mixkit.co/videos/preview/mixkit-chef-preparing-a-fresh-vegetable-salad-41582-large.mp4", 
+                thumbnail_url="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400", 
+                is_active=True, 
+                impressions_count=120, 
+                clicks_count=15,
+                start_date=datetime(2026, 6, 1),
+                end_date=datetime(2026, 6, 30)
+            ),
+            Campaign(
+                merchant_id=sample_merchants[1].id, 
+                title="Bánh mì tặng kèm trà đào giải nhiệt", 
+                description="Combo giải nhiệt cực đã: Mua 1 ổ bánh mì thập cẩm lớn, tặng ngay 1 ly trà đào mát lạnh sảng khoái.",
+                video_url="https://assets.mixkit.co/videos/preview/mixkit-cutting-slices-of-fresh-bread-41595-large.mp4", 
+                thumbnail_url="https://images.unsplash.com/photo-1509722747041-616f39b57569?w=400", 
+                is_active=False, 
+                impressions_count=85, 
+                clicks_count=8,
+                start_date=datetime(2026, 6, 1),
+                end_date=datetime(2026, 8, 31)
+            ),
+            Campaign(
+                merchant_id=sample_merchants[2].id, 
+                title="Combo cơm tấm sườn chả chỉ 39k", 
+                description="Khuyến mãi tưng bừng: Combo cơm tấm sườn chả chuẩn Sài Gòn kèm nước ngọt giải khát giá cực sốc chỉ 39.000đ.",
+                video_url="https://assets.mixkit.co/videos/preview/mixkit-pouring-sauce-on-a-meal-41584-large.mp4", 
+                thumbnail_url="https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400", 
+                is_active=True, 
+                impressions_count=230, 
+                clicks_count=42,
+                start_date=datetime(2026, 5, 1),
+                end_date=datetime(2026, 5, 31)
+            ),
         ]
         db.add_all(campaigns)
         db.commit()

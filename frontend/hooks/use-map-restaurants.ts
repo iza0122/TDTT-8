@@ -3,19 +3,22 @@
 import { useState, useEffect, useCallback } from "react";
 import { searchMerchantsGeo, Restaurant } from "@/lib/services/merchant";
 import { toast } from "@/hooks/use-toast";
+import { globalAppCache } from "@/lib/cache";
 
 export function useMapRestaurants() {
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [radius, setRadius] = useState(20.0);
-  const [searchCenter, setSearchCenter] = useState({ lat: 10.775, lng: 106.690 });
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const cached = globalAppCache.mapState;
+
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(cached ? cached.selectedRestaurant : null);
+  const [activeCategory, setActiveCategory] = useState(cached ? cached.activeCategory : "Tất cả");
+  const [searchQuery, setSearchQuery] = useState(cached ? cached.searchQuery : "");
+  const [radius, setRadius] = useState(cached ? cached.radius : 20.0);
+  const [searchCenter, setSearchCenter] = useState(cached ? cached.searchCenter : { lat: 10.775, lng: 106.690 });
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(cached ? cached.userLocation : null);
   const [isLocating, setIsLocating] = useState(false);
-  const [isLocationResolved, setIsLocationResolved] = useState(false);
+  const [isLocationResolved, setIsLocationResolved] = useState(cached ? cached.isLocationResolved : false);
   const [isClient, setIsClient] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
-  const [restaurantsList, setRestaurantsList] = useState<Restaurant[]>([]);
+  const [restaurantsList, setRestaurantsList] = useState<Restaurant[]>(cached ? cached.restaurantsList : []);
   const [isFetchingRestaurants, setIsFetchingRestaurants] = useState(false);
 
   // Retrieve user location using Geolocation API
@@ -64,6 +67,9 @@ export function useMapRestaurants() {
   // Handle client-side detection and auto-trigger geolocation on startup
   useEffect(() => {
     setIsClient(true);
+    if (globalAppCache.mapState?.isLocationResolved) {
+      return;
+    }
     if (typeof window !== "undefined" && navigator.geolocation) {
       const timer = setTimeout(() => {
         getCurrentLocation();
@@ -79,7 +85,9 @@ export function useMapRestaurants() {
     if (!isClient || !isLocationResolved) return;
 
     const loadRestaurants = async () => {
-      setIsFetchingRestaurants(true);
+      if (restaurantsList.length === 0) {
+        setIsFetchingRestaurants(true);
+      }
       try {
         const data = await searchMerchantsGeo({
           lat: searchCenter.lat,
@@ -103,7 +111,32 @@ export function useMapRestaurants() {
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [searchQuery, activeCategory, radius, searchCenter, isLocationResolved, isClient]);
+  }, [searchQuery, activeCategory, radius, searchCenter, isLocationResolved, isClient, restaurantsList.length]);
+
+  // Sync state changes to globalAppCache to survive unmounts/navigating away
+  useEffect(() => {
+    if (!isClient) return;
+    globalAppCache.mapState = {
+      restaurantsList,
+      selectedRestaurant,
+      activeCategory,
+      searchQuery,
+      radius,
+      searchCenter,
+      userLocation,
+      isLocationResolved
+    };
+  }, [
+    restaurantsList,
+    selectedRestaurant,
+    activeCategory,
+    searchQuery,
+    radius,
+    searchCenter,
+    userLocation,
+    isLocationResolved,
+    isClient
+  ]);
 
   // Handler for selecting a restaurant (e.g. from list or marker)
   const handleSelectRestaurant = useCallback((res: Restaurant | null) => {

@@ -8,14 +8,21 @@ from backend.core.config import settings
 DATABASE_URL = settings.DATABASE_URL
 
 # SQLite needs some special configurations
-connect_args = {}
+engine_args = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args = {
         "check_same_thread": False,
         "timeout": 30  # Tăng thời gian chờ khoá để tránh lỗi 'database is locked' khi có nhiều luồng
     }
+    engine_args["connect_args"] = connect_args
+else:
+    # Tối ưu cấu hình Connection Pool cho PostgreSQL khi chạy trên Vercel/Production
+    engine_args["pool_size"] = 20
+    engine_args["max_overflow"] = 10
+    engine_args["pool_recycle"] = 3600
+    engine_args["pool_pre_ping"] = True
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+engine = create_engine(DATABASE_URL, **engine_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -60,6 +67,17 @@ def connect(dbapi_connection, connection_record):
         dbapi_connection.create_function("cos", 1, sqlite_cos)
         dbapi_connection.create_function("sin", 1, sqlite_sin)
         dbapi_connection.create_function("acos", 1, sqlite_acos)
+        
+        # Tối ưu hóa SQLite cho tốc độ ghi cao và tránh file locks (WAL mode)
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA cache_size=-64000") # Cache 64MB
+            cursor.execute("PRAGMA temp_store=MEMORY")
+            cursor.close()
+        except Exception as e:
+            print(f"[DATABASE] Lỗi khi kích hoạt PRAGMAs tối ưu SQLite: {e}")
 
 def get_db():
     db = SessionLocal()

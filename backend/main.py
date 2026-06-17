@@ -48,6 +48,90 @@ try:
 except Exception:
     pass
 
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE videos ADD COLUMN comments_count INTEGER DEFAULT 0 NOT NULL"))
+        # Cập nhật số lượng bình luận hiện có cho các video đã tồn tại
+        conn.execute(text("""
+            UPDATE videos 
+            SET comments_count = (
+                SELECT COUNT(*) FROM comments WHERE comments.video_id = videos.id
+            )
+        """))
+        print("[MIGRATION] Đã tự động thêm cột comments_count vào bảng videos và đồng bộ dữ liệu.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE videos ADD COLUMN rating INTEGER DEFAULT 5 NOT NULL"))
+        print("[MIGRATION] Đã tự động thêm cột rating vào bảng videos.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE videos ADD COLUMN merchant_response TEXT"))
+        print("[MIGRATION] Đã tự động thêm cột merchant_response vào bảng videos.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE campaigns ADD COLUMN description TEXT"))
+        print("[MIGRATION] Đã tự động thêm cột description vào bảng campaigns.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE campaigns ADD COLUMN start_date TIMESTAMP"))
+        print("[MIGRATION] Đã tự động thêm cột start_date vào bảng campaigns.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE campaigns ADD COLUMN end_date TIMESTAMP"))
+        print("[MIGRATION] Đã tự động thêm cột end_date vào bảng campaigns.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE menus ADD COLUMN category VARCHAR DEFAULT 'Món ăn'"))
+        print("[MIGRATION] Đã tự động thêm cột category vào bảng menus.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE merchants ADD COLUMN slogan VARCHAR"))
+        print("[MIGRATION] Đã tự động thêm cột slogan vào bảng merchants.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE merchants ADD COLUMN hours VARCHAR"))
+        print("[MIGRATION] Đã tự động thêm cột hours vào bảng merchants.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE merchants ADD COLUMN phone VARCHAR"))
+        print("[MIGRATION] Đã tự động thêm cột phone vào bảng merchants.")
+except Exception:
+    pass
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE merchants ADD COLUMN email VARCHAR"))
+        print("[MIGRATION] Đã tự động thêm cột email vào bảng merchants.")
+except Exception:
+    pass
+
 app = FastAPI(
     title="Food Review API",
     description="Hệ thống Backend MVP cho mạng xã hội & Đánh giá ẩm thực Food Review",
@@ -65,17 +149,19 @@ app.add_middleware(
 )
 
 # Đăng ký Router tổng dưới prefix chung
-# Khi chạy trên Vercel, Vercel đã rewrite /api/(.*) và loại bỏ prefix /api trong path truyền tới ASGI.
-# Do đó ta sử dụng prefix rỗng trên Vercel và prefix "/api" ở local.
-import os
-prefix = "" if os.environ.get("VERCEL") else settings.API_V1_STR
+# Backend luôn sử dụng prefix /api để đồng nhất giữa môi trường Local và Vercel.
+prefix = settings.API_V1_STR
 
 app.include_router(api_router, prefix=prefix)
 
-@app.get(prefix or "/", tags=["General"])
+# Đăng ký các route root hỗ trợ cả dạng có prefix /api và không có prefix
+@app.get("/", tags=["General"])
+@app.get(f"{prefix}", tags=["General"])
 def read_root():
     return {"message": f"Welcome to {settings.PROJECT_NAME}"}
 
-@app.get(f"{prefix}/health" if prefix else "/health", tags=["General"])
+# Đăng ký các route health check hỗ trợ cả dạng có prefix /api và không có prefix
+@app.get("/health", tags=["General"])
+@app.get(f"{prefix}/health", tags=["General"])
 def health_check():
     return {"status": "ok", "environment": "Local/Vercel"}
