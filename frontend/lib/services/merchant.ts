@@ -169,7 +169,7 @@ export async function searchMerchantsGeo(params: SearchMerchantsParams): Promise
   if (q && q.trim() !== "") {
     url += `&q=${encodeURIComponent(q.trim())}`;
   }
-  if (category && category !== "all") {
+  if (category && category !== "Tất cả") {
     url += `&category=${encodeURIComponent(category)}`;
   }
 

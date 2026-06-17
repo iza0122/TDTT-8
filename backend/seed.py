@@ -227,7 +227,7 @@ def seed_database():
         sample_merchants = db.query(Merchant).limit(10).all()
         
         video_details = [
-            ("Review Phở bò cực đỉnh Quận 1", "https://assets.mixkit.co/videos/preview/mixkit-chef-preparing-a-fresh-vegetable-salad-41582-large.mp4", "Nước dùng ngọt thanh cực kỳ ngon, sườn bò mềm tan.", "video"),
+            ("Review Phở bò cực đỉnh Quận 1", "https://vjs.zencdn.net/v/oceans.mp4", "Nước dùng ngọt thanh cực kỳ ngon, sườn bò mềm tan.", "video"),
             ("Bánh mì giòn rụm chỉ 25k đông khách nhất Q3", "https://images.unsplash.com/photo-1509722747041-616f39b57569?w=800", "Chỗ này nổi tiếng giòn thơm ngon, ăn một ổ là no nê cả buổi sáng.", "image"),
             ("Cơm Tấm sườn nướng siêu to khổng lồ", "https://assets.mixkit.co/videos/preview/mixkit-pouring-sauce-on-a-meal-41584-large.mp4", "Sườn nướng thơm phức mật ong ăn kèm chả trứng dai giòn sần sật.", "video"),
             ("Hủ tiếu khô độc lạ Nam Bộ cực kỳ đắt khách", "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800", "Nước sốt khô sền sệt đậm đà, tôm tươi giòn ngọt lịm.", "image"),
@@ -251,7 +251,8 @@ def seed_database():
                 rating=random.randint(3, 5),
                 merchant_response=None,
                 reviewer_id=random.choice([users[1].id, users[2].id]),
-                tagged_merchant_id=sample_merchants[idx].id if idx < len(sample_merchants) else None
+                tagged_merchant_id=sample_merchants[idx].id if idx < len(sample_merchants) else None,
+                status="approved"
             )
             db.add(video)
             videos.append(video)

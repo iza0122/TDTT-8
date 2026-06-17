@@ -1,7 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, JSON, Index
 from sqlalchemy.orm import relationship
 from backend.core.database import Base
+
+def get_vietnam_time():
+    return datetime.now(timezone(timedelta(hours=7))).replace(tzinfo=None)
 
 class User(Base):
     __tablename__ = "users"
@@ -21,8 +24,8 @@ class User(Base):
     # 3. MỞ RỘNG (Open-Closed): Lưu trữ linh hoạt các siêu dữ liệu cấu hình hoặc token bên thứ 3 mà không cần sửa bảng
     meta_data = Column(JSON, nullable=True) 
     
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
+    updated_at = Column(DateTime, default=get_vietnam_time, onupdate=get_vietnam_time, nullable=False)
 
     # Relationships
     merchants = relationship("Merchant", back_populates="owner")
@@ -30,6 +33,9 @@ class User(Base):
     likes = relationship("Like", back_populates="user", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="user", cascade="all, delete-orphan")
     comment_likes = relationship("CommentLike", back_populates="user", cascade="all, delete-orphan")
+
+    # Dynamic attributes not stored in DB
+    is_following = False
 
 
 class Merchant(Base):
@@ -58,7 +64,7 @@ class Merchant(Base):
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
     
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
 
     # Relationships
     owner = relationship("User", back_populates="merchants")
@@ -78,7 +84,7 @@ class Menu(Base):
     description = Column(Text, nullable=True)
     image_url = Column(String, nullable=True)
     category = Column(String, nullable=True, default="Món ăn")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
 
     # Relationships
     merchant = relationship("Merchant", back_populates="menus")
@@ -107,7 +113,7 @@ class Video(Base):
     reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     tagged_merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=True, index=True)
     reup_from_id = Column(Integer, ForeignKey("videos.id"), nullable=True, index=True) # ID bài viết gốc nếu là reup
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False, index=True)
 
     # Relationships
     reviewer = relationship("User", back_populates="videos")
@@ -117,6 +123,9 @@ class Video(Base):
     
     # Self-referencing relationship for reups
     reup_from = relationship("Video", remote_side=[id], backref="reups")
+
+    # Dynamic attributes not stored in DB
+    is_liked = False
 
 
 class Like(Base):
@@ -129,7 +138,7 @@ class Like(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="likes")
@@ -145,7 +154,7 @@ class Comment(Base):
     content = Column(Text, nullable=False)
     parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True, index=True)
     likes_count = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="comments")
@@ -165,7 +174,7 @@ class CommentLike(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     comment_id = Column(Integer, ForeignKey("comments.id"), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="comment_likes")
@@ -183,9 +192,9 @@ class Campaign(Base):
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     impressions_count = Column(Integer, default=0, nullable=False)
     clicks_count = Column(Integer, default=0, nullable=False)
-    start_date = Column(DateTime, default=datetime.utcnow, nullable=True)
+    start_date = Column(DateTime, default=get_vietnam_time, nullable=True)
     end_date = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
 
     # Relationships
     merchant = relationship("Merchant", back_populates="campaigns")
@@ -200,7 +209,7 @@ class UserFollow(Base):
     id = Column(Integer, primary_key=True, index=True)
     follower_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     following_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
 
 class HiddenVideo(Base):
     __tablename__ = "hidden_videos"
@@ -212,7 +221,7 @@ class HiddenVideo(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
 
 class UserShare(Base):
     __tablename__ = "user_shares"
@@ -224,5 +233,5 @@ class UserShare(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=get_vietnam_time, nullable=False)
 

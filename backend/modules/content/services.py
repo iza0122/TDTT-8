@@ -1,12 +1,13 @@
 import uuid
 import boto3
+from huggingface_hub import InferenceClient
 from botocore.config import Config
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 
 from backend.core.config import settings
-from backend.core.all_models import Video, Merchant, Campaign, HiddenVideo, UserFollow
+from backend.core.all_models import Video, Merchant, Campaign, HiddenVideo, UserFollow, get_vietnam_time
 from backend.modules.content.schemas import VideoCreate
 from backend.core.database import SessionLocal, Base
 
@@ -79,6 +80,121 @@ def generate_presigned_upload_url(file_name: str, content_type: str, folder: str
         "key": key
     }
 
+def moderate_content_huggingface(title: str, description: str) -> str:
+    """
+    Kiểm duyệt nội dung tự động bằng Hugging Face Serverless Inference API (Zero-Shot Classification).
+    Sử dụng đối tượng InferenceClient của thư viện chính thức huggingface_hub để cấu hình,
+    nhưng thực hiện request HTTP trực tiếp qua thư viện requests để tránh lỗi phân tích cú pháp của thư viện.
+    Model: MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7 (hoặc cấu hình)
+    """
+    import requests
+
+    # 1. Kiểm tra cấu hình API
+    if not settings.HUGGINGFACE_API_KEY or "your_" in settings.HUGGINGFACE_API_KEY.lower():
+        print("[AI MODERATION] HUGGINGFACE_API_KEY chưa được cấu hình. Chuyển sang duyệt thủ công.")
+        return "pending"
+
+    # 2. Gộp tiêu đề và mô tả
+    text_to_classify = f"{title} {description}".strip()
+    if not text_to_classify:
+        return "rejected"
+
+    try:
+        # Khởi tạo InferenceClient với token, model và timeout từ config
+        client = InferenceClient(
+            model=settings.HUGGINGFACE_MODEL_ID,
+            token=settings.HUGGINGFACE_API_KEY,
+            timeout=5.0
+        )
+        
+        # Định nghĩa lại phương thức zero_shot_classification động trên đối tượng client
+        # để tránh bug TypeError: list indices must be integers or slices, not str của huggingface_hub SDK
+        def custom_zero_shot_classification(text, candidate_labels, hypothesis_template=None, headers=None, **kwargs):
+            url = f"https://router.huggingface.co/hf-inference/models/{client.model}"
+            req_headers = {
+                "Authorization": f"Bearer {client.token}",
+                "Content-Type": "application/json"
+            }
+            if headers:
+                req_headers.update(headers)
+            payload = {
+                "inputs": text,
+                "parameters": {
+                    "candidate_labels": candidate_labels,
+                    "hypothesis_template": hypothesis_template
+                }
+            }
+            res = requests.post(url, headers=req_headers, json=payload, timeout=client.timeout)
+            if res.status_code != 200:
+                raise Exception(f"HTTP Error {res.status_code}: {res.text}")
+            result = res.json()
+            
+            # Hỗ trợ cả 2 định dạng trả về của Inference API và trả về dict map 
+            if isinstance(result, list):
+                labels_list = [item["label"] for item in result]
+                scores_list = [item["score"] for item in result]
+                return {"labels": labels_list, "scores": scores_list}
+            elif isinstance(result, dict):
+                return result
+            else:
+                raise ValueError(f"Định dạng phản hồi không hợp lệ: {type(result)}")
+
+        client.zero_shot_classification = custom_zero_shot_classification
+
+        text = text_to_classify
+        # 1. Định nghĩa bộ 4 nhãn biệt lập (BẮT BUỘC)
+        candidate_labels = [
+            "food review or dining experience",
+            "spam, commercial advertising or product selling",
+            "job recruitment or hiring",
+            "general unrelated spam text"
+        ]
+
+        try:
+            # 2. Gọi API với cấu hình tối ưu tốc độ và timeout
+            response = client.zero_shot_classification(
+                text,
+                candidate_labels=candidate_labels,
+                hypothesis_template="This text is about {}",
+                timeout=15.0,
+                headers={"X-Wait-For-Model": "true"}
+            )
+            
+            labels = response.get("labels", [])
+            scores = response.get("scores", [])
+            
+            # In log debug ra Terminal đầy đủ 4 nhãn
+            print(f'[AI DEBUG] Văn bản kiểm duyệt: "{text[:100]}..."')
+            for l, s in zip(labels, scores):
+                print(f"-> Nhãn [{l}]: {s:.4f}")
+                
+            # 3. Logic quyết định duyệt bài
+            # Tạo dictionary để tra cứu điểm số cho nhanh
+            score_dict = dict(zip(labels, scores))
+            food_score = score_dict.get("food review or dining experience", 0.0)
+            
+            # Tìm điểm số cao nhất của các nhãn rác còn lại
+            spam_score = score_dict.get("spam, commercial advertising or product selling", 0.0)
+            job_score = score_dict.get("job recruitment or hiring", 0.0)
+            general_score = score_dict.get("general unrelated spam text", 0.0)
+            max_spam_score = max(spam_score, job_score, general_score)
+            
+            # Điều kiện duyệt bài nghiêm ngặt
+            if food_score >= 0.5 and food_score > max_spam_score:
+                status = "approved"
+            else:
+                status = "rejected"
+
+        except Exception as e:
+            print(f"[AI MODERATION] Lỗi hệ thống: {str(e)}")
+            status = "pending"
+            
+        return status
+
+    except Exception as e:
+        print(f"[AI MODERATION] InferenceClient error or timeout failure: {e}")
+        return "pending"
+
 def create_video(db: Session, video_in: VideoCreate, reviewer_id: int) -> Video:
     """
     Lưu thông tin siêu dữ liệu (Metadata) của Video / Review vào PostgreSQL.
@@ -100,6 +216,14 @@ def create_video(db: Session, video_in: VideoCreate, reviewer_id: int) -> Video:
             
     is_review = video_in.post_type == "review" or video_in.post_type == "text"
     
+    # Tích hợp kiểm duyệt tự động bằng AI
+    moderated_status = "pending"
+    try:
+        moderated_status = moderate_content_huggingface(video_in.title, video_in.description or "")
+    except Exception as e:
+        print(f"[CONTENT] AI Moderation exception: {e}")
+        moderated_status = "pending"
+
     # Kiểm tra xem đã có đánh giá cũ chưa để ghi đè (Anti-Spam / Edit Review)
     existing_review = None
     if is_review and tagged_merchant_id is not None:
@@ -110,13 +234,13 @@ def create_video(db: Session, video_in: VideoCreate, reviewer_id: int) -> Video:
         ).first()
 
     if existing_review:
-        from datetime import datetime
         existing_review.title = video_in.title
         existing_review.description = video_in.description
         existing_review.rating = video_in.rating if video_in.rating is not None else 5
         if video_in.thumbnail_url:
             existing_review.thumbnail_url = video_in.thumbnail_url
-        existing_review.created_at = datetime.utcnow()
+        existing_review.created_at = get_vietnam_time()
+        existing_review.status = moderated_status
         db_video = existing_review
     else:
         db_video = Video(
@@ -128,7 +252,7 @@ def create_video(db: Session, video_in: VideoCreate, reviewer_id: int) -> Video:
             tagged_merchant_id=tagged_merchant_id,
             post_type=video_in.post_type or "video",
             rating=video_in.rating if video_in.rating is not None else 5,
-            status="approved" if is_review else "pending"  # Tự động duyệt đối với đánh giá bằng chữ
+            status=moderated_status
         )
     
     try:
@@ -213,7 +337,7 @@ def get_videos(db: Session, skip: int = 0, limit: int = 10) -> list[Video]:
     """
     return db.query(Video).offset(skip).limit(limit).all()
 
-def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, post_type: Optional[str] = None, current_user_id: Optional[int] = None, following_only: bool = False) -> dict:
+def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, post_type: Optional[str] = None, current_user_id: Optional[int] = None, following_only: bool = False, tag: Optional[str] = None) -> dict:
     """
     Lấy danh sách video (cho Feed) có phân trang bằng Cursor
     và tự động trộn quảng cáo (Campaign) theo tỷ lệ 4:1.
@@ -237,9 +361,25 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
         joinedload(Video.reviewer),
         joinedload(Video.tagged_merchant),
         joinedload(Video.reup_from).joinedload(Video.reviewer)
-    )
+    ).filter(Video.status == "approved")
     if post_type:
         query = query.filter(Video.post_type == post_type)
+        
+    if tag:
+        from sqlalchemy import or_
+        from backend.core.all_models import Merchant
+        
+        # Outer join to filter by Merchant category if needed
+        query = query.outerjoin(Merchant, Video.tagged_merchant_id == Merchant.id)
+        
+        tag_lower = f"%{tag.lower()}%"
+        query = query.filter(
+            or_(
+                Video.title.ilike(tag_lower),
+                Video.description.ilike(tag_lower),
+                Merchant.category.ilike(tag_lower)
+            )
+        )
         
     # Lọc video bị ẩn bởi user hiện tại
     if current_user_id:
@@ -318,7 +458,8 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
                     "name": campaign.merchant.name if campaign.merchant else "",
                     "address": campaign.merchant.address if campaign.merchant else "",
                     "latitude": campaign.merchant.latitude if campaign.merchant else 0.0,
-                    "longitude": campaign.merchant.longitude if campaign.merchant else 0.0
+                    "longitude": campaign.merchant.longitude if campaign.merchant else 0.0,
+                    "owner_id": campaign.merchant.owner_id if campaign.merchant else 0
                 } if campaign.merchant else None
             }
             mixed_items.append(ad_item)
@@ -441,4 +582,41 @@ def delete_video(db: Session, video_id: int, current_user) -> dict:
     return {
         "status": "success",
         "message": "Đã xóa bài viết và toàn bộ dữ liệu liên quan thành công."
+    }
+
+# ==============================================================================
+# ĐỀ XUẤT HƯỚNG XỬ LÝ HÀNG ĐỢI "PENDING" DÀNH CHO TRANG ADMIN (DRAFT/DRAFT API)
+# ==============================================================================
+# Gợi ý: Khi hệ thống AI bị lỗi mạng, timeout hoặc quá tải, bài viết được lưu ở
+# trạng thái "pending" để Admin phê duyệt thủ công. Các hàm dưới đây giúp quản trị
+# viên truy vấn danh sách cần duyệt và cập nhật thủ công trạng thái của chúng.
+
+def get_pending_videos(db: Session, skip: int = 0, limit: int = 50) -> list[Video]:
+    """
+    Quét danh sách các bài viết/video đang chờ phê duyệt (status='pending').
+    Dành riêng cho dashboard của Admin để xử lý duyệt bằng tay.
+    """
+    return db.query(Video).filter(Video.status == "pending").offset(skip).limit(limit).all()
+
+def update_video_status_manual(db: Session, video_id: int, new_status: str) -> dict:
+    """
+    Cho phép Admin phê duyệt hoặc từ chối bài viết thủ công.
+    - new_status: 'approved' (Nút Approve) hoặc 'rejected' (Nút Reject)
+    """
+    if new_status not in ["approved", "rejected"]:
+        raise ValueError("Trạng thái mới không hợp lệ. Chỉ chấp nhận 'approved' hoặc 'rejected'.")
+        
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        return {"status": "error", "message": "Không tìm thấy bài viết."}
+        
+    video.status = new_status
+    db.commit()
+    db.refresh(video)
+    
+    return {
+        "status": "success",
+        "message": f"Đã cập nhật trạng thái bài viết sang '{new_status}' thành công.",
+        "video_id": video.id,
+        "new_status": video.status
     }

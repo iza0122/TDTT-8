@@ -83,14 +83,21 @@ export default function HomePage() {
   const [showModalMenu, setShowModalMenu] = useState(false);
   const pendingLikes = useRef<Record<string, boolean>>({});
 
+  const [activeCategory, setActiveCategory] = useState("Tất cả");
+  const [searchQuery, setSearchQuery] = useState("");
+
   useEffect(() => {
     const fetchPosts = async () => {
-      const hasCache = feedType === "following" ? !!globalAppCache.followingPosts : !!globalAppCache.posts;
+      const isDefaultFeed = activeCategory === "Tất cả";
+      const hasCache = isDefaultFeed ? (feedType === "following" ? !!globalAppCache.followingPosts : !!globalAppCache.posts) : false;
       if (!hasCache) {
         setIsLoading(true);
       }
       try {
-        const url = `/api/content/videos?post_type=image${feedType === "following" ? "&following_only=true" : ""}`;
+        let url = `/api/content/videos?post_type=image${feedType === "following" ? "&following_only=true" : ""}`;
+        if (!isDefaultFeed) {
+          url += `&tag=${encodeURIComponent(activeCategory)}`;
+        }
         const response = await fetch(url, {
           headers: token ? { "Authorization": `Bearer ${token}` } : {}
         });
@@ -134,10 +141,12 @@ export default function HomePage() {
             isSaved: savedIds.includes(String(item.id))
           }));
           setPostsList(mapped);
-          if (feedType === "following") {
-            globalAppCache.followingPosts = mapped;
-          } else {
-            globalAppCache.posts = mapped;
+          if (activeCategory === "Tất cả") {
+            if (feedType === "following") {
+              globalAppCache.followingPosts = mapped;
+            } else {
+              globalAppCache.posts = mapped;
+            }
           }
         }
       } catch (err) {
@@ -148,7 +157,7 @@ export default function HomePage() {
     };
 
     fetchPosts();
-  }, [token, feedType]);
+  }, [token, feedType, activeCategory]);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -235,41 +244,17 @@ export default function HomePage() {
     fetchComments();
   }, [selectedPostId]);
 
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
   // Live filter logic
   const filteredPosts = postsList.filter((post) => {
-    // 1. Filter by category
-    if (activeCategory !== "all") {
-      const categoryId = activeCategory.toLowerCase(); // e.g. "pho", "bun", "com", "banh"
-      const postCategory = post.restaurant.category.toLowerCase(); // e.g. "phở", "bún chả", "bánh mì"
-      
-      const categoryMap: { [key: string]: string } = {
-        pho: "phở",
-        bun: "bún",
-        com: "cơm",
-        banh: "bánh",
-        cafe: "cà phê",
-        tra: "trà sữa",
-        lau: "lẩu"
-      };
-      
-      const targetCategory = categoryMap[categoryId];
-      if (targetCategory && !postCategory.includes(targetCategory)) {
-        return false;
-      }
-    }
-
-    // 2. Filter by search query
+    // Filter by search query
     if (searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase();
       return (
-        post.caption.toLowerCase().includes(query) ||
-        post.restaurant.name.toLowerCase().includes(query) ||
-        post.restaurant.category.toLowerCase().includes(query) ||
-        post.user.name.toLowerCase().includes(query) ||
-        post.user.username.toLowerCase().includes(query)
+        (post.caption || "").toLowerCase().includes(query) ||
+        (post.restaurant?.name || "").toLowerCase().includes(query) ||
+        (post.restaurant?.category || "").toLowerCase().includes(query) ||
+        (post.user?.name || "").toLowerCase().includes(query) ||
+        (post.user?.username || "").toLowerCase().includes(query)
       );
     }
 
@@ -401,30 +386,33 @@ export default function HomePage() {
             <Header />
           </div>
           
-          {/* Search Bar - Awwwards Command Style */}
-          <div className="bg-card border-b border-border/40 p-4">
-            <div className="max-w-lg mx-auto relative group">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted-foreground/60 group-focus-within:text-orange-500 transition-colors duration-300" />
-              <input
-                type="text"
-                placeholder="Tìm món ăn, nhà hàng, blogger..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-secondary/40 hover:bg-secondary/60 focus:bg-background text-foreground placeholder:text-muted-foreground/60 pl-10 pr-10 py-3 rounded-2xl border border-border/40 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 focus:outline-none transition-all duration-500 text-xs font-semibold"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground p-1 rounded-full hover:bg-muted transition-all active:scale-90"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+          {/* Sticky Search & Tags Container */}
+          <div className="sticky top-[57px] lg:top-0 z-30 bg-card shadow-sm">
+            {/* Search Bar - Awwwards Command Style */}
+            <div className="bg-card border-b border-border/40 p-4">
+              <div className="max-w-lg mx-auto relative group">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted-foreground/60 group-focus-within:text-orange-500 transition-colors duration-300" />
+                <input
+                  type="text"
+                  placeholder="Tìm món ăn, nhà hàng, blogger..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-secondary/40 hover:bg-secondary/60 focus:bg-background text-foreground placeholder:text-muted-foreground/60 pl-10 pr-10 py-3 rounded-2xl border border-border/40 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 focus:outline-none transition-all duration-500 text-xs font-semibold"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground p-1 rounded-full hover:bg-muted transition-all active:scale-90"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Categories Filter */}
-          <CategoryFilter activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+            {/* Categories Filter */}
+            <CategoryFilter activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+          </div>
           
           {/* Posts Feed container */}
           <div className="max-w-lg mx-auto py-4 px-4 md:px-0">
@@ -529,7 +517,7 @@ export default function HomePage() {
                   size="sm" 
                   onClick={() => {
                     setSearchQuery("");
-                    setActiveCategory("all");
+                    setActiveCategory("Tất cả");
                   }}
                   className="text-xs font-bold rounded-full"
                 >

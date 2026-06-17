@@ -63,6 +63,7 @@ def list_videos(
     limit: int = Query(8, ge=1, le=100, description="Số lượng bản ghi tối đa trả về"),
     post_type: Optional[str] = Query(None, description="Lọc theo loại post (video hoặc image)"),
     following_only: bool = Query(False, description="Chỉ lấy các bài viết của những người dùng đang theo dõi"),
+    tag: Optional[str] = Query(None, description="Lọc theo tag/danh mục món ăn"),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
     background_tasks: BackgroundTasks = BackgroundTasks()
@@ -74,7 +75,8 @@ def list_videos(
         limit=limit, 
         post_type=post_type, 
         current_user_id=user_id,
-        following_only=following_only
+        following_only=following_only,
+        tag=tag
     )
     
     # Kích hoạt tăng lượt impressions của campaign bất đồng bộ qua background task

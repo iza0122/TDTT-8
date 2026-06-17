@@ -9,7 +9,7 @@ export function useMapRestaurants() {
   const cached = globalAppCache.mapState;
 
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(cached ? cached.selectedRestaurant : null);
-  const [activeCategory, setActiveCategory] = useState(cached ? cached.activeCategory : "all");
+  const [activeCategory, setActiveCategory] = useState(cached ? cached.activeCategory : "Tất cả");
   const [searchQuery, setSearchQuery] = useState(cached ? cached.searchQuery : "");
   const [radius, setRadius] = useState(cached ? cached.radius : 20.0);
   const [searchCenter, setSearchCenter] = useState(cached ? cached.searchCenter : { lat: 10.775, lng: 106.690 });
