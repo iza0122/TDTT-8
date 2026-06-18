@@ -172,16 +172,20 @@ def get_admin_videos_count(
 def patch_video_status(
     db: Session, video_id: int, status: str, reject_reason: Optional[str] = None
 ) -> Optional[Video]:
+    from datetime import datetime
     video = db.query(Video).filter(Video.id == video_id).first()
     if video:
         video.status = status
+        meta = dict(video.meta_data) if video.meta_data is not None else {}
         if status == "rejected":
-            if video.meta_data is None:
-                video.meta_data = {}
-            video.meta_data["reject_reason"] = reject_reason
+            meta["reject_reason"] = reject_reason
+            meta["rejected_at"] = datetime.utcnow().isoformat()
         else:
-            if video.meta_data and "reject_reason" in video.meta_data:
-                del video.meta_data["reject_reason"]
+            if "reject_reason" in meta:
+                del meta["reject_reason"]
+            if "rejected_at" in meta:
+                del meta["rejected_at"]
+        video.meta_data = meta
         db.commit()
         db.refresh(video)
     return video

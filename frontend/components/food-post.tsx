@@ -271,7 +271,8 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
       const nextSaved = !isSaved;
       setIsSaved(nextSaved);
       if (typeof window !== "undefined") {
-        let saved = JSON.parse(localStorage.getItem("saved_videos") || "[]");
+        const savedKey = user ? `saved_videos_${user.id}` : "saved_videos";
+        let saved = JSON.parse(localStorage.getItem(savedKey) || "[]");
         if (nextSaved) {
           const videoToSave = {
             id: post.id,
@@ -288,7 +289,7 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
         } else {
           saved = saved.filter((v: any) => String(v.id) !== String(post.id));
         }
-        localStorage.setItem("saved_videos", JSON.stringify(saved));
+        localStorage.setItem(savedKey, JSON.stringify(saved));
       }
     });
   };

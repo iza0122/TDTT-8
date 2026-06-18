@@ -13,6 +13,7 @@ import {
   Menu,
   LogOut,
   ChefHat,
+  Clock,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ const navItems = [
   { name: "Menu", href: "/merchant/menu", icon: Utensils },
   { name: "Promotions", href: "/merchant/promotions", icon: Megaphone },
   { name: "Reviews", href: "/merchant/reviews", icon: Star },
+  { name: "Bài viết chờ duyệt", href: "/pending", icon: Clock },
   { name: "Settings", href: "/merchant/settings", icon: Settings },
 ];
 

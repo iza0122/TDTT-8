@@ -165,3 +165,9 @@ def read_root():
 @app.get(f"{prefix}/health", tags=["General"])
 def health_check():
     return {"status": "ok", "environment": "Local/Vercel"}
+
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    from backend.core.tasks import run_periodic_cleanup
+    asyncio.create_task(run_periodic_cleanup())

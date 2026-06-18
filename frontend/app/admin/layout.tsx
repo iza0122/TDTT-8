@@ -26,7 +26,6 @@ const navItems = [
   { name: "Người dùng", href: "/admin/users", icon: Users },
   { name: "Quán ăn", href: "/admin/merchants", icon: Store },
   { name: "Kiểm duyệt Video", href: "/admin/videos", icon: Video },
-  { name: "Quảng cáo", href: "/admin/campaigns", icon: Megaphone },
 ];
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {

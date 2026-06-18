@@ -275,59 +275,18 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
     else:
         next_cursor = None
         
-    # 4. Lấy các chiến dịch quảng cáo (Ads) đang hoạt động
-    active_campaigns = db.query(Campaign).options(joinedload(Campaign.merchant)).filter(Campaign.is_active == True).all()
-    
-    # 5. Trộn Feed theo tỷ lệ 4 thường : 1 quảng cáo
+    # 5. Tạo Feed từ video thường (Đã tắt việc trộn quảng cáo/campaigns)
     mixed_items = []
-    campaigns_to_track = []
-    ad_index = 0
-    
     for i, video in enumerate(organic_videos):
         video.is_liked = video.id in liked_video_ids
         if video.reviewer:
             video.reviewer.is_following = video.reviewer_id in followed_user_ids
         mixed_items.append(video)
-        
-        # Cứ sau 4 video thường, nếu có QC hoạt động thì chèn vào
-        if (i + 1) % 4 == 0 and active_campaigns:
-            campaign = active_campaigns[ad_index % len(active_campaigns)]
-            ad_index += 1
-            
-            # Đóng gói campaign giống cấu trúc của VideoResponse
-            ad_item = {
-                "id": campaign.id,
-                "title": campaign.title,
-                "video_url": campaign.video_url,
-                "thumbnail_url": campaign.thumbnail_url,
-                "description": f"Được tài trợ bởi {campaign.merchant.name if campaign.merchant else ''}",
-                "status": "approved",
-                "likes_count": 0,
-                "reviewer_id": 0,
-                "tagged_merchant_id": campaign.merchant_id,
-                "created_at": campaign.created_at,
-                "is_ads": True,
-                "user": {
-                    "id": 0,
-                    "full_name": campaign.merchant.name if campaign.merchant else "Được tài trợ",
-                    "avatar_url": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
-                    "username": "sponsored"
-                },
-                "restaurant": {
-                    "id": campaign.merchant_id,
-                    "name": campaign.merchant.name if campaign.merchant else "",
-                    "address": campaign.merchant.address if campaign.merchant else "",
-                    "latitude": campaign.merchant.latitude if campaign.merchant else 0.0,
-                    "longitude": campaign.merchant.longitude if campaign.merchant else 0.0
-                } if campaign.merchant else None
-            }
-            mixed_items.append(ad_item)
-            campaigns_to_track.append(campaign.id)
             
     return {
         "items": mixed_items,
         "next_cursor": next_cursor,
-        "campaigns_to_track": campaigns_to_track
+        "campaigns_to_track": []
     }
 
 from backend.common.pagination import decode_cursor, encode_cursor
@@ -377,6 +336,15 @@ def delete_video(db: Session, video_id: int, current_user) -> dict:
             detail="Bạn không có quyền xóa bài viết/đánh giá này."
         )
 
+    delete_video_record_internal(db, video)
+
+    return {
+        "status": "success",
+        "message": "Đã xóa bài viết và toàn bộ dữ liệu liên quan thành công."
+    }
+
+def delete_video_record_internal(db: Session, video: Video):
+    video_id = video.id
     tagged_merchant_id = video.tagged_merchant_id
     merchant = video.tagged_merchant
 
@@ -437,8 +405,3 @@ def delete_video(db: Session, video_id: int, current_user) -> dict:
         else:
             merchant.rating_avg = 0.0
         db.commit()
-
-    return {
-        "status": "success",
-        "message": "Đã xóa bài viết và toàn bộ dữ liệu liên quan thành công."
-    }

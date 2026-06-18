@@ -302,7 +302,7 @@ export default function ReviewsManagementPage() {
                           fill
                           sizes="96px"
                           className="object-cover transition-transform duration-300 group-hover:scale-105"
-                          onClick={() => setZoomedImage(review.image)}
+                          onClick={() => setZoomedImage(review.image || null)}
                         />
                       </div>
                     )}

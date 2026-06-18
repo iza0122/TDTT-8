@@ -44,6 +44,8 @@ class VideoMinResponse(BaseModel):
     description: Optional[str] = None
     likes_count: int = 0
     post_type: str = "video"
+    status: str = "pending"
+    meta_data: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     class Config:

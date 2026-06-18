@@ -76,14 +76,6 @@ def list_videos(
         current_user_id=user_id,
         following_only=following_only
     )
-    
-    # Kích hoạt tăng lượt impressions của campaign bất đồng bộ qua background task
-    if feed_data.get("campaigns_to_track") and background_tasks:
-        background_tasks.add_task(
-            services.increment_campaign_impressions,
-            feed_data["campaigns_to_track"]
-        )
-        
     return feed_data
 
 @router.delete(

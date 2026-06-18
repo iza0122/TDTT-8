@@ -51,7 +51,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
           label="Tổng người dùng"
           value={loading ? "..." : (stats?.total_users ?? 0)}
@@ -72,13 +72,6 @@ export default function AdminDashboardPage() {
           icon={Store}
           iconClassName="bg-green-500/10 text-green-600"
           description="is_active = true"
-        />
-        <StatCard
-          label="Campaign đang chạy"
-          value={loading ? "..." : (stats?.active_campaigns ?? 0)}
-          icon={Megaphone}
-          iconClassName="bg-primary/10 text-primary"
-          description="Đang chạy"
         />
       </div>
 
@@ -213,12 +206,11 @@ export default function AdminDashboardPage() {
         <CardHeader className="px-5 pt-5 pb-4 border-b border-border">
           <CardTitle className="text-sm font-semibold">Truy cập nhanh</CardTitle>
         </CardHeader>
-        <CardContent className="px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <CardContent className="px-5 py-4 grid grid-cols-1 md:grid-cols-3 gap-3">
           {[
             { href: "/admin/users", icon: Users, label: "Quản lý Người dùng", color: "bg-blue-500/10 text-blue-500" },
             { href: "/admin/merchants", icon: Store, label: "Quản lý Quán ăn", color: "bg-green-500/10 text-green-600" },
             { href: "/admin/videos", icon: Video, label: "Kiểm duyệt Video", color: "bg-amber-500/10 text-amber-500" },
-            { href: "/admin/campaigns", icon: Megaphone, label: "Quản lý Quảng cáo", color: "bg-primary/10 text-primary" },
           ].map((item) => (
             <Link key={item.href} href={item.href}>
               <Button variant="outline" className="w-full justify-start gap-3 h-10 text-sm">

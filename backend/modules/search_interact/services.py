@@ -390,3 +390,35 @@ def share_post(db: Session, video_id: int, user_id: Optional[int] = None) -> dic
         "shares_count": video.shares_count,
         "message": "Đã chia sẻ bài viết."
     }
+
+def get_followed_users(db: Session, current_user_id: int) -> List[dict]:
+    follows = db.query(UserFollow).filter(UserFollow.follower_id == current_user_id).all()
+    results = []
+    
+    for f in follows:
+        followed_user = db.query(User).filter(User.id == f.following_id).first()
+        if not followed_user:
+            continue
+            
+        followers_count = db.query(UserFollow).filter(UserFollow.following_id == followed_user.id).count()
+        following_count = db.query(UserFollow).filter(UserFollow.follower_id == followed_user.id).count()
+        posts_count = db.query(Video).filter(Video.reviewer_id == followed_user.id, Video.status == "approved").count()
+        
+        meta = followed_user.meta_data or {}
+        bio = meta.get("bio", "Blogger ẩm thực đầy nhiệt huyết.")
+        
+        results.append({
+            "id": followed_user.id,
+            "email": followed_user.email,
+            "full_name": followed_user.full_name,
+            "avatar_url": followed_user.avatar_url,
+            "role": followed_user.role,
+            "bio": bio,
+            "followers_count": followers_count,
+            "following_count": following_count,
+            "is_following": True,
+            "posts_count": posts_count
+        })
+        
+    return results
+

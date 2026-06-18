@@ -268,9 +268,9 @@ def get_user_profile(db: Session, user_id: int, current_user_id: Optional[int] =
     from backend.core.all_models import Like
     liked_videos = db.query(Video).join(Like, Like.video_id == Video.id).filter(Like.user_id == user_id).all()
 
-    # 6. Lấy danh sách video đã lưu (Lấy ngẫu nhiên vài video từ người khác để hiển thị)
-    saved_videos = db.query(Video).filter(Video.reviewer_id != user_id).limit(4).all()
-    saved_count = len(saved_videos)
+    # 6. Lấy danh sách video đã lưu (Lưu trữ ở frontend qua localStorage, backend trả về rỗng)
+    saved_videos = []
+    saved_count = 0
 
     # 7. Lấy danh sách video đã ẩn từ bảng HiddenVideo bằng JOIN
     hidden_videos = db.query(Video).join(HiddenVideo, HiddenVideo.video_id == Video.id).filter(HiddenVideo.user_id == user_id).all()
@@ -355,9 +355,16 @@ def login_google_user(db: Session, data: GoogleLoginRequest) -> dict:
             
         if user:
             user.firebase_uid = uid
+            # Đồng bộ thêm avatar và tên khi liên kết tài khoản Google
+            google_name = decoded_token.get("name")
+            google_picture = decoded_token.get("picture")
+            if google_name and (not user.full_name or user.full_name == user.email.split("@")[0].capitalize()):
+                user.full_name = google_name
+            if google_picture and not user.avatar_url:
+                user.avatar_url = google_picture
             db.commit()
             db.refresh(user)
-            print(f"[IDENTITY] Đã liên kết tài khoản email '{email}' với google firebase_uid '{uid}'")
+            print(f"[IDENTITY] Đã liên kết tài khoản email '{email}' với google firebase_uid '{uid}' và đồng bộ avatar.")
         else:
             # Tạo mới hoàn toàn
             user = User(
@@ -378,6 +385,25 @@ def login_google_user(db: Session, data: GoogleLoginRequest) -> dict:
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Lỗi khi lưu thông tin người dùng Google vào local database: {str(e)}"
                 )
+    else:
+        # Nếu user đã tồn tại, đồng bộ avatar_url từ Google nếu avatar local trống hoặc khác biệt
+        google_picture = decoded_token.get("picture")
+        google_name = decoded_token.get("name")
+        updated = False
+        if google_picture and user.avatar_url != google_picture:
+            user.avatar_url = google_picture
+            updated = True
+        if google_name and not user.full_name:
+            user.full_name = google_name
+            updated = True
+        if updated:
+            try:
+                db.commit()
+                db.refresh(user)
+                print(f"[IDENTITY] Đã tự động cập nhật thông tin/avatar từ Google cho UID: {uid}")
+            except Exception as e:
+                db.rollback()
+                print(f"[IDENTITY] Lỗi khi cập nhật thông tin/avatar từ Google: {e}")
                 
     if user and isinstance(user.meta_data, dict) and user.meta_data.get("disabled") is True:
         raise HTTPException(

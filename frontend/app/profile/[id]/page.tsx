@@ -163,7 +163,7 @@ export default function PublicProfilePage() {
 
   const displayName = profileStats.full_name || "Blogger ẩn danh";
   const displayUsername = profileStats.email ? profileStats.email.split('@')[0] : `user_${profileStats.id}`;
-  const displayAvatar = profileStats.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
+  const displayAvatar = profileStats.avatar_url || "";
   const displayBio = profileStats.bio || "Đam mê ẩm thực & Chia sẻ quán ngon";
 
   const postsCount = profileStats.posts_count ?? 0;

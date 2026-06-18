@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Settings, Grid3X3, Bookmark, Heart, MapPin, Home, Share2, LogOut, Loader2, Play, Eye, Plus, Sparkles, ChevronRight } from "lucide-react";
+import { Settings, Grid3X3, Bookmark, Heart, MapPin, Home, Share2, LogOut, Loader2, Play, Eye, Plus, Sparkles, ChevronRight, Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -33,11 +33,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const saved = JSON.parse(localStorage.getItem("saved_videos") || "[]");
+      const savedKey = user ? `saved_videos_${user.id}` : "saved_videos";
+      const saved = JSON.parse(localStorage.getItem(savedKey) || "[]");
       setSavedCount(saved.length);
       setSavedVideosList(saved);
     }
-  }, [activeTab, profileStats]);
+  }, [activeTab, profileStats, user]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -94,9 +95,9 @@ export default function ProfilePage() {
     );
   }
 
-  const displayName = user?.full_name || profileStats?.full_name || "Blogger ẩm thực";
-  const displayUsername = user?.email ? user.email.split('@')[0] : (profileStats?.email ? profileStats.email.split('@')[0] : "blogger");
-  const displayAvatar = user?.avatar_url || profileStats?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
+  const displayName = profileStats?.full_name || user?.full_name || "Blogger ẩm thực";
+  const displayUsername = profileStats?.email ? profileStats.email.split('@')[0] : (user?.email ? user.email.split('@')[0] : "blogger");
+  const displayAvatar = profileStats?.avatar_url || user?.avatar_url || "";
   const displayBio = profileStats?.bio || "Đam mê ẩm thực & Chia sẻ quán ngon";
 
   const postsCount = profileStats?.posts_count ?? 0;
@@ -216,6 +217,18 @@ export default function ProfilePage() {
                     <Share2 className="w-3.5 h-3.5 text-foreground/80" />
                   </div>
                 </button>
+
+                <Link href="/pending" className="w-full">
+                  <button className="w-full border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
+                    <span className="whitespace-nowrap flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                      Bài viết chờ duyệt
+                    </span>
+                    <div className="w-6.5 h-6.5 bg-secondary dark:bg-white/10 rounded-full flex items-center justify-center transition-all duration-300 group-hover:translate-x-0.5">
+                      <ChevronRight className="w-3.5 h-3.5 text-foreground/80" />
+                    </div>
+                  </button>
+                </Link>
 
               </div>
 

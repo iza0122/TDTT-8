@@ -248,15 +248,45 @@ export default function MapPage() {
                 );
               })
             ) : (
-              <div className="text-center py-12 px-4 space-y-3 bg-card/40 border border-border/40 rounded-2xl">
-                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center mx-auto text-muted-foreground">
-                  <Search className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-xs text-foreground">Không tìm thấy địa điểm</h4>
-                  <p className="text-[10px] text-muted-foreground mt-1">Hãy thử tìm với từ khóa khác</p>
-                </div>
-              </div>
+              (() => {
+                const isSearching = searchQuery.trim() !== "" || activeCategory !== "all";
+                return (
+                  <div className="text-center py-12 px-4 space-y-4 bg-card/40 border border-border/40 rounded-2xl animate-fade-in flex flex-col items-center">
+                    {isSearching ? (
+                      <>
+                        <div className="w-10 h-10 bg-orange-500/10 rounded-full flex items-center justify-center text-orange-500 border border-orange-500/20 shadow-xs">
+                          <Search className="w-5 h-5 stroke-[1.5]" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-xs text-foreground">Không tìm thấy địa điểm</h4>
+                          <p className="text-[10px] text-muted-foreground/80 font-semibold">Hãy thử tìm với từ khóa khác hoặc thay đổi bộ lọc</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSearchQuery("");
+                            setActiveCategory("all");
+                          }}
+                          className="text-[10px] font-bold rounded-full h-7 px-3.5 cursor-pointer hover:bg-orange-500 hover:text-white transition-colors duration-300"
+                        >
+                          Đặt lại tìm kiếm
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-10 h-10 bg-orange-500/10 rounded-full flex items-center justify-center text-orange-500 border border-orange-500/20 shadow-xs">
+                          <MapPin className="w-5 h-5 stroke-[1.5]" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-xs text-foreground">Chưa có quán ăn nào</h4>
+                          <p className="text-[10px] text-muted-foreground/80 font-semibold">Hiện tại chưa có quán ăn nào trong khu vực này</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()
             )}
           </div>
         </div>

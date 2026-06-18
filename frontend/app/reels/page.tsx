@@ -37,7 +37,7 @@ export default function ReelsPage() {
   const { toast } = useToast();
   const displayName = user?.full_name || "Khách";
   const displayUsername = user?.email ? user.email.split('@')[0] : "guest";
-  const displayAvatar = user?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
+  const displayAvatar = user?.avatar_url || "";
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [showComments, setShowComments] = useState(false);
@@ -148,7 +148,7 @@ export default function ReelsPage() {
             user: {
               name: item.user?.full_name || "Người dùng",
               username: item.user?.username || `user_${item.reviewer_id}`,
-              avatar: item.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+              avatar: item.user?.avatar_url || undefined,
               is_following: item.user?.is_following || false
             },
             restaurant: {
@@ -166,7 +166,7 @@ export default function ReelsPage() {
               id: item.reup_from_user.id,
               name: item.reup_from_user.full_name || "Người dùng",
               username: item.reup_from_user.username || `user_${item.reup_from_user.id}`,
-              avatar: item.reup_from_user.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+              avatar: item.reup_from_user.avatar_url || undefined
             } : null,
             music: "Âm thanh gốc - " + (item.user?.full_name || "Blogger"),
             isLiked: item.is_liked || false
@@ -255,7 +255,7 @@ export default function ReelsPage() {
             user: {
               name: c.user?.full_name || "Người dùng",
               username: c.user?.email ? c.user.email.split("@")[0] : `user_${c.user?.id || 'unknown'}`,
-              avatar: c.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+              avatar: c.user?.avatar_url || undefined
             },
             content: c.content,
             createdAt: formatRelativeTime(c.created_at),
@@ -266,7 +266,7 @@ export default function ReelsPage() {
               user: {
                 name: r.user?.full_name || "Người dùng",
                 username: r.user?.email ? r.user.email.split("@")[0] : `user_${r.user?.id || 'unknown'}`,
-                avatar: r.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+                avatar: r.user?.avatar_url || undefined
               },
               content: r.content,
               createdAt: formatRelativeTime(r.created_at),
@@ -310,7 +310,7 @@ export default function ReelsPage() {
           user: {
             name: user?.full_name || displayName,
             username: user?.email ? user.email.split("@")[0] : displayUsername,
-            avatar: user?.avatar_url || displayAvatar,
+            avatar: user?.avatar_url || displayAvatar || "",
           },
           content: c.content,
           createdAt: "Vừa xong",

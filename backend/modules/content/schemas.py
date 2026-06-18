@@ -100,7 +100,7 @@ class VideoResponse(BaseModel):
             obj_dict["user"] = {
                 "id": reviewer.id,
                 "full_name": reviewer.full_name or "Người dùng",
-                "avatar_url": reviewer.avatar_url or "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+                "avatar_url": reviewer.avatar_url,
                 "username": reviewer.email.split("@")[0] if reviewer.email else f"user_{reviewer.id}",
                 "is_following": getattr(reviewer, "is_following", False)
             }
@@ -124,7 +124,7 @@ class VideoResponse(BaseModel):
             obj_dict["reup_from_user"] = {
                 "id": orig_rev.id,
                 "full_name": orig_rev.full_name or "Người dùng",
-                "avatar_url": orig_rev.avatar_url or "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+                "avatar_url": orig_rev.avatar_url,
                 "username": orig_rev.email.split("@")[0] if orig_rev.email else f"user_{orig_rev.id}",
                 "is_following": False
             }

@@ -247,7 +247,7 @@ export default function SettingsPage() {
                   <div className="absolute inset-0 bg-gradient-to-tr from-orange-500 to-red-500 rounded-full blur-[2px] opacity-70 group-hover:opacity-100 transition-opacity duration-500" />
                   <div className="relative p-1 bg-gradient-to-tr from-orange-500 to-red-500 rounded-full shadow-md">
                     <Avatar className="w-24 h-24 ring-2 ring-white dark:ring-black">
-                      <AvatarImage src={avatarUrl || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop"} />
+                      <AvatarImage src={avatarUrl || ""} />
                       <AvatarFallback className="bg-secondary text-primary font-black text-3xl">
                         {fullName[0] || user?.email?.[0]?.toUpperCase()}
                       </AvatarFallback>
