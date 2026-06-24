@@ -108,7 +108,7 @@ class Video(Base):
     merchant_response = Column(Text, nullable=True)
     reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     tagged_merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=True, index=True)
-    reup_from_id = Column(Integer, ForeignKey("videos.id"), nullable=True, index=True) # ID bài viết gốc nếu là reup
+    reup_from_id = Column(Integer, ForeignKey("videos.id", ondelete="SET NULL"), nullable=True, index=True) # ID bài viết gốc nếu là reup
     meta_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
@@ -214,7 +214,7 @@ class HiddenVideo(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
+    video_id = Column(Integer, ForeignKey("videos.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class UserShare(Base):
@@ -226,7 +226,7 @@ class UserShare(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
+    video_id = Column(Integer, ForeignKey("videos.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -239,7 +239,7 @@ class SavedPost(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
+    video_id = Column(Integer, ForeignKey("videos.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

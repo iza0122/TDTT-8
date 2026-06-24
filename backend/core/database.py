@@ -71,6 +71,7 @@ def connect(dbapi_connection, connection_record):
         # Tối ưu hóa SQLite cho tốc độ ghi cao và tránh file locks (WAL mode)
         try:
             cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.execute("PRAGMA cache_size=-64000") # Cache 64MB
