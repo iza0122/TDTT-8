@@ -138,7 +138,7 @@ export function useLoginForm() {
       const response = await fetch("/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id_token: idToken })
+        body: JSON.stringify({ id_token: idToken, role: loginRole })
       });
 
       let data;

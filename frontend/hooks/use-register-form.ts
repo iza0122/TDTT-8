@@ -183,7 +183,7 @@ export function useRegisterForm() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (registerRole: "reviewer" | "merchant" = "reviewer") => {
     setIsLoading(true);
     setError(null);
     setFieldErrors({});
@@ -195,7 +195,7 @@ export function useRegisterForm() {
       const response = await fetch("/api/auth/google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id_token: idToken })
+        body: JSON.stringify({ id_token: idToken, role: registerRole })
       });
 
       let data;
@@ -216,7 +216,13 @@ export function useRegisterForm() {
         description: `Chào mừng ${data.user.full_name || 'bạn'} đã tham gia cộng đồng!`,
       });
 
-      router.push("/");
+      if (data.user?.role === "merchant") {
+        router.push("/merchant");
+      } else if (data.user?.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/");
+      }
     } catch (err: any) {
       console.error(err);
       const isPopupClosed = err.code === "auth/popup-closed-by-user" || err.message?.includes("closed");

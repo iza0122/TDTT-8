@@ -79,3 +79,4 @@ class UserProfileUpdateRequest(BaseModel):
 
 class GoogleLoginRequest(BaseModel):
     id_token: str
+    role: Optional[str] = Field("reviewer", description="Vai trò mong muốn nếu tự động tạo mới (ví dụ: reviewer, merchant)")

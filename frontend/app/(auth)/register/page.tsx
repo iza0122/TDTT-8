@@ -271,7 +271,7 @@ export default function RegisterPage() {
           {/* Social Continue with Google */}
           <button 
             type="button"
-            onClick={handleGoogleLogin}
+            onClick={() => handleGoogleLogin("reviewer")}
             disabled={isLoading}
             className="w-full border border-border/85 bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer"
           >

@@ -372,7 +372,7 @@ def login_google_user(db: Session, data: GoogleLoginRequest) -> dict:
                 email=email,
                 full_name=decoded_token.get("name", email.split("@")[0] if email else "Blogger Google"),
                 avatar_url=decoded_token.get("picture"),
-                role="reviewer"
+                role=data.role or "reviewer"
             )
             try:
                 db.add(user)
