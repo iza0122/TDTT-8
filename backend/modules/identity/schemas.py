@@ -7,6 +7,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=6, description="Mật khẩu đăng ký (tối thiểu 6 ký tự)")
     full_name: Optional[str] = Field(None, description="Họ và tên người dùng")
     avatar_url: Optional[str] = Field(None, description="Đường dẫn ảnh đại diện")
+    role: Optional[str] = Field("reviewer", description="Vai trò người dùng (ví dụ: reviewer, merchant)")
 
 class LoginRequest(BaseModel):
     email: Optional[str] = Field(None, description="Email hoặc Số điện thoại đăng nhập")
@@ -43,6 +44,8 @@ class VideoMinResponse(BaseModel):
     description: Optional[str] = None
     likes_count: int = 0
     post_type: str = "video"
+    status: str = "pending"
+    meta_data: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     class Config:

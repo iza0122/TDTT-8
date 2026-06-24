@@ -87,6 +87,25 @@ class Settings(BaseSettings):
     GOOGLE_APPLICATION_CREDENTIALS_JSON: Optional[str] = None
     
     FIREBASE_CREDENTIALS: Dict[str, Any] = {}
+
+    @field_validator("FIREBASE_CREDENTIALS", mode="before")
+    @classmethod
+    def parse_firebase_credentials(cls, v: Any) -> Dict[str, Any]:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return {}
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+            return {}
+        elif isinstance(v, dict):
+            return v
+        return {}
+        
     FIREBASE_WEB_API_KEY: str = ""
 
     @model_validator(mode="after")

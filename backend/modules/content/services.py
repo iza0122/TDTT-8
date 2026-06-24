@@ -2,7 +2,7 @@ import uuid
 import boto3
 from botocore.config import Config
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 
 from backend.core.config import settings
@@ -81,7 +81,7 @@ def generate_presigned_upload_url(file_name: str, content_type: str, folder: str
 
 def create_video(db: Session, video_in: VideoCreate, reviewer_id: int) -> Video:
     """
-    Lưu thông tin siêu dữ liệu (Metadata) của Video vào PostgreSQL.
+    Lưu thông tin siêu dữ liệu (Metadata) của Video / Review vào PostgreSQL.
     """
     # Xử lý chuẩn hóa tagged_merchant_id: nếu là 0 hoặc bé hơn, coi như không gắn thẻ (None)
     tagged_merchant_id = video_in.tagged_merchant_id
@@ -89,6 +89,7 @@ def create_video(db: Session, video_in: VideoCreate, reviewer_id: int) -> Video:
         tagged_merchant_id = None
 
     # Xác minh nhà hàng được gắn thẻ nếu có
+    merchant = None
     if tagged_merchant_id is not None:
         merchant = db.query(Merchant).filter(Merchant.id == tagged_merchant_id).first()
         if not merchant:
@@ -97,27 +98,63 @@ def create_video(db: Session, video_in: VideoCreate, reviewer_id: int) -> Video:
                 detail="Nhà hàng/Cửa hàng được gắn thẻ không tồn tại trong hệ thống."
             )
             
-    db_video = Video(
-        title=video_in.title,
-        video_url=video_in.video_url,
-        thumbnail_url=video_in.thumbnail_url,
-        description=video_in.description,
-        reviewer_id=reviewer_id,
-        tagged_merchant_id=tagged_merchant_id,
-        post_type=video_in.post_type or "video",
-        status="pending"  # Mặc định chờ kiểm duyệt
-    )
+    is_review = video_in.post_type == "review" or video_in.post_type == "text"
+    
+    # Kiểm tra xem đã có đánh giá cũ chưa để ghi đè (Anti-Spam / Edit Review)
+    existing_review = None
+    if is_review and tagged_merchant_id is not None:
+        existing_review = db.query(Video).filter(
+            Video.reviewer_id == reviewer_id,
+            Video.tagged_merchant_id == tagged_merchant_id,
+            (Video.post_type == "review") | (Video.post_type == "text")
+        ).first()
+
+    if existing_review:
+        from datetime import datetime
+        existing_review.title = video_in.title
+        existing_review.description = video_in.description
+        existing_review.rating = video_in.rating if video_in.rating is not None else 5
+        if video_in.thumbnail_url:
+            existing_review.thumbnail_url = video_in.thumbnail_url
+        existing_review.created_at = datetime.utcnow()
+        db_video = existing_review
+    else:
+        db_video = Video(
+            title=video_in.title,
+            video_url=video_in.video_url,
+            thumbnail_url=video_in.thumbnail_url,
+            description=video_in.description,
+            reviewer_id=reviewer_id,
+            tagged_merchant_id=tagged_merchant_id,
+            post_type=video_in.post_type or "video",
+            rating=video_in.rating if video_in.rating is not None else 5,
+            status="approved" if is_review else "pending"  # Tự động duyệt đối với đánh giá bằng chữ
+        )
     
     try:
-        db.add(db_video)
+        if not existing_review:
+            db.add(db_video)
         db.commit()
         db.refresh(db_video)
+        
+        # Cập nhật điểm rating_avg cho Merchant dựa trên tất cả bài đánh giá của merchant này
+        if tagged_merchant_id is not None and merchant is not None:
+            ratings = db.query(Video.rating).filter(
+                Video.tagged_merchant_id == tagged_merchant_id,
+                Video.rating.isnot(None)
+            ).all()
+            if ratings:
+                avg_rating = sum(r[0] for r in ratings) / len(ratings)
+                merchant.rating_avg = round(avg_rating, 1)
+                db.commit()
+                db.refresh(merchant)
+                
         return db_video
     except Exception as e:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Lỗi hệ thống khi lưu trữ thông tin video: {str(e)}"
+            detail=f"Lỗi hệ thống khi lưu trữ thông tin video/đánh giá: {str(e)}"
         )
 
 def reup_video(db: Session, video_id: int, reviewer_id: int) -> Video:
@@ -196,7 +233,11 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
         followed_user_ids = {f[0] for f in follows}
     
     # 2. Truy vấn video thường (organic)
-    query = db.query(Video)
+    query = db.query(Video).options(
+        joinedload(Video.reviewer),
+        joinedload(Video.tagged_merchant),
+        joinedload(Video.reup_from).joinedload(Video.reviewer)
+    ).filter(Video.status == "approved")
     if post_type:
         query = query.filter(Video.post_type == post_type)
         
@@ -234,59 +275,18 @@ def get_video_feed(db: Session, cursor: Optional[str] = None, limit: int = 8, po
     else:
         next_cursor = None
         
-    # 4. Lấy các chiến dịch quảng cáo (Ads) đang hoạt động
-    active_campaigns = db.query(Campaign).filter(Campaign.is_active == True).all()
-    
-    # 5. Trộn Feed theo tỷ lệ 4 thường : 1 quảng cáo
+    # 5. Tạo Feed từ video thường (Đã tắt việc trộn quảng cáo/campaigns)
     mixed_items = []
-    campaigns_to_track = []
-    ad_index = 0
-    
     for i, video in enumerate(organic_videos):
         video.is_liked = video.id in liked_video_ids
         if video.reviewer:
             video.reviewer.is_following = video.reviewer_id in followed_user_ids
         mixed_items.append(video)
-        
-        # Cứ sau 4 video thường, nếu có QC hoạt động thì chèn vào
-        if (i + 1) % 4 == 0 and active_campaigns:
-            campaign = active_campaigns[ad_index % len(active_campaigns)]
-            ad_index += 1
-            
-            # Đóng gói campaign giống cấu trúc của VideoResponse
-            ad_item = {
-                "id": campaign.id,
-                "title": campaign.title,
-                "video_url": campaign.video_url,
-                "thumbnail_url": campaign.thumbnail_url,
-                "description": f"Được tài trợ bởi {campaign.merchant.name if campaign.merchant else ''}",
-                "status": "approved",
-                "likes_count": 0,
-                "reviewer_id": 0,
-                "tagged_merchant_id": campaign.merchant_id,
-                "created_at": campaign.created_at,
-                "is_ads": True,
-                "user": {
-                    "id": 0,
-                    "full_name": campaign.merchant.name if campaign.merchant else "Được tài trợ",
-                    "avatar_url": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
-                    "username": "sponsored"
-                },
-                "restaurant": {
-                    "id": campaign.merchant_id,
-                    "name": campaign.merchant.name if campaign.merchant else "",
-                    "address": campaign.merchant.address if campaign.merchant else "",
-                    "latitude": campaign.merchant.latitude if campaign.merchant else 0.0,
-                    "longitude": campaign.merchant.longitude if campaign.merchant else 0.0
-                } if campaign.merchant else None
-            }
-            mixed_items.append(ad_item)
-            campaigns_to_track.append(campaign.id)
             
     return {
         "items": mixed_items,
         "next_cursor": next_cursor,
-        "campaigns_to_track": campaigns_to_track
+        "campaigns_to_track": []
     }
 
 from backend.common.pagination import decode_cursor, encode_cursor
@@ -316,20 +316,37 @@ def delete_video(db: Session, video_id: int, current_user) -> dict:
     """
     Xóa video review (bài viết) cùng toàn bộ dữ liệu liên quan (likes, comments, R2 files).
     """
-    # 1. Tìm video
-    video = db.query(Video).filter(Video.id == video_id).first()
+    # 1. Tìm video cùng thông tin nhà hàng được gắn thẻ
+    video = db.query(Video).options(joinedload(Video.tagged_merchant)).filter(Video.id == video_id).first()
     if not video:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bài viết/Video không tồn tại trong hệ thống."
         )
 
-    # 2. Kiểm tra quyền sở hữu (chỉ chính chủ hoặc admin mới được xóa)
-    if video.reviewer_id != current_user.id and current_user.role != "admin":
+    # Kiểm tra xem người dùng hiện tại có phải là chủ sở hữu của nhà hàng được gắn thẻ hay không
+    is_merchant_owner = False
+    if video.tagged_merchant and video.tagged_merchant.owner_id == current_user.id:
+        is_merchant_owner = True
+
+    # 2. Kiểm tra quyền sở hữu (chính chủ review, chủ nhà hàng được tag, hoặc admin)
+    if video.reviewer_id != current_user.id and not is_merchant_owner and current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền xóa bài viết này."
+            detail="Bạn không có quyền xóa bài viết/đánh giá này."
         )
+
+    delete_video_record_internal(db, video)
+
+    return {
+        "status": "success",
+        "message": "Đã xóa bài viết và toàn bộ dữ liệu liên quan thành công."
+    }
+
+def delete_video_record_internal(db: Session, video: Video):
+    video_id = video.id
+    tagged_merchant_id = video.tagged_merchant_id
+    merchant = video.tagged_merchant
 
     # 3. Trích xuất key lưu trữ Cloudflare R2 từ video_url và thumbnail_url để xóa file vật lý
     r2_public_url = settings.CLOUDFLARE_R2_PUBLIC_URL
@@ -375,7 +392,16 @@ def delete_video(db: Session, video_id: int, current_user) -> dict:
     db.delete(video)
     db.commit()
 
-    return {
-        "status": "success",
-        "message": "Đã xóa bài viết và toàn bộ dữ liệu liên quan thành công."
-    }
+    # Cập nhật lại điểm rating_avg cho Merchant dựa trên tất cả bài đánh giá còn lại
+    if tagged_merchant_id is not None and merchant is not None:
+        ratings = db.query(Video.rating).filter(
+            Video.tagged_merchant_id == tagged_merchant_id,
+            Video.rating.isnot(None),
+            Video.id != video_id  # Đảm bảo video hiện tại đã bị loại khỏi tính toán (hoặc đã delete)
+        ).all()
+        if ratings:
+            avg_rating = sum(r[0] for r in ratings) / len(ratings)
+            merchant.rating_avg = round(avg_rating, 1)
+        else:
+            merchant.rating_avg = 0.0
+        db.commit()

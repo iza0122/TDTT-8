@@ -19,6 +19,7 @@ class VideoCreate(BaseModel):
     description: Optional[str] = None
     tagged_merchant_id: Optional[int] = None
     post_type: Optional[str] = "video"
+    rating: Optional[int] = 5
 
 class VideoUserResponse(BaseModel):
     id: int
@@ -36,6 +37,7 @@ class VideoMerchantResponse(BaseModel):
     address: Optional[str] = None
     latitude: float
     longitude: float
+    owner_id: int
 
     class Config:
         from_attributes = True
@@ -85,7 +87,7 @@ class VideoResponse(BaseModel):
             "status": data.status,
             "likes_count": data.likes_count,
             "shares_count": getattr(data, "shares_count", 0),
-            "comments_count": len(getattr(data, "comments", [])) if hasattr(data, "comments") and getattr(data, "comments", []) else 0,
+            "comments_count": getattr(data, "comments_count", 0),
             "reviewer_id": data.reviewer_id,
             "tagged_merchant_id": data.tagged_merchant_id,
             "reup_from_id": getattr(data, "reup_from_id", None),
@@ -98,7 +100,7 @@ class VideoResponse(BaseModel):
             obj_dict["user"] = {
                 "id": reviewer.id,
                 "full_name": reviewer.full_name or "Người dùng",
-                "avatar_url": reviewer.avatar_url or "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+                "avatar_url": reviewer.avatar_url,
                 "username": reviewer.email.split("@")[0] if reviewer.email else f"user_{reviewer.id}",
                 "is_following": getattr(reviewer, "is_following", False)
             }
@@ -111,7 +113,8 @@ class VideoResponse(BaseModel):
                 "name": merchant.name,
                 "address": merchant.address or "",
                 "latitude": merchant.latitude,
-                "longitude": merchant.longitude
+                "longitude": merchant.longitude,
+                "owner_id": merchant.owner_id
             }
         else:
             obj_dict["restaurant"] = None
@@ -121,7 +124,7 @@ class VideoResponse(BaseModel):
             obj_dict["reup_from_user"] = {
                 "id": orig_rev.id,
                 "full_name": orig_rev.full_name or "Người dùng",
-                "avatar_url": orig_rev.avatar_url or "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+                "avatar_url": orig_rev.avatar_url,
                 "username": orig_rev.email.split("@")[0] if orig_rev.email else f"user_{orig_rev.id}",
                 "is_following": False
             }

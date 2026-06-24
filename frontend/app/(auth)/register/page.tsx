@@ -178,7 +178,7 @@ export default function RegisterPage() {
                       )}
                     >
                       {req.met && <Check className="w-2.5 h-2.5" />}
-                      <span>{req.MetSymbol ? req.MetSymbol : ""} {req.label}</span>
+                      <span>{req.label}</span>
                     </span>
                   ))}
                 </div>

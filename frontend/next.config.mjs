@@ -21,12 +21,16 @@ const nextConfig = {
   },
   allowedDevOrigins: ['192.168.1.124', '192.168.1.124:3000', 'localhost:3000'],
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const cleanApiUrl = apiUrl.replace(/\/$/, '');
+    const destinationUrl = cleanApiUrl.endsWith('/api')
+      ? `${cleanApiUrl}/:path*`
+      : `${cleanApiUrl}/api/:path*`;
+
     return [
       {
         source: '/api/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL 
-          ? `${process.env.NEXT_PUBLIC_API_URL}/:path*` 
-          : 'http://localhost:8000/api/:path*',
+        destination: destinationUrl,
       },
     ]
   },

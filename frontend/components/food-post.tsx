@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2, EyeOff, Copy, Repeat } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2, EyeOff, Copy } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, copyToClipboard } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { CaptionText } from "@/components/caption-text";
+import { LoginRequiredDialog } from "@/components/login-required-dialog";
 
 interface FoodPostProps {
   post: {
@@ -18,6 +20,7 @@ interface FoodPostProps {
       name: string;
       username: string;
       avatar: string;
+      is_following?: boolean;
     };
     restaurant: {
       name: string;
@@ -47,15 +50,26 @@ interface FoodPostProps {
   onCommentClick?: () => void;
   onLikeToggle?: (isLiked: boolean, likesCount: number) => void;
   onShareUpdate?: (sharesCount: number) => void;
+  onFollowToggle?: (isFollowing: boolean) => void;
   onDelete?: () => void;
 }
 
-export function FoodPost({ post, priority = false, onPostClick, onCommentClick, onLikeToggle, onShareUpdate, onDelete }: FoodPostProps) {
+export function FoodPost({ post, priority = false, onPostClick, onCommentClick, onLikeToggle, onShareUpdate, onFollowToggle, onDelete }: FoodPostProps) {
   const { token, user } = useAuth();
+  const { toast } = useToast();
   const [showMenu, setShowMenu] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(post.isSaved);
+  const [isFollowing, setIsFollowing] = useState(post.user.is_following || false);
   const [shares, setShares] = useState(post.shares || 0);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+
+  useEffect(() => {
+    setIsSaved(post.isSaved);
+  }, [post.isSaved]);
+
+  useEffect(() => {
+    setIsFollowing(post.user.is_following || false);
+  }, [post.user.is_following]);
   const isLikePending = useRef(false);
 
   useEffect(() => {
@@ -64,7 +78,11 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
 
   const handleHidePost = async () => {
     if (!token) {
-      alert("Vui lòng đăng nhập để ẩn bài viết.");
+      toast({
+        title: "Yêu cầu đăng nhập",
+        description: "Vui lòng đăng nhập để ẩn bài viết.",
+        variant: "destructive"
+      });
       return;
     }
     if (!confirm("Bạn có chắc chắn muốn ẩn bài viết này không? Nó sẽ không hiển thị trên bảng tin của bạn nữa.")) return;
@@ -77,13 +95,21 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
         }
       });
       if (response.ok) {
-        alert("Đã ẩn bài viết.");
+        toast({
+          title: "Đã ẩn bài viết",
+          description: "Bài viết sẽ không hiển thị trên bảng tin của bạn nữa.",
+          variant: "success"
+        });
         if (onDelete) {
           onDelete(); // Xóa khỏi danh sách local feed
         }
       } else {
         const errData = await response.json();
-        alert(errData.detail || "Không thể ẩn bài viết.");
+        toast({
+          title: "Thao tác thất bại",
+          description: errData.detail || "Không thể ẩn bài viết.",
+          variant: "destructive"
+        });
       }
     } catch (err) {
       console.error("Lỗi khi ẩn bài viết:", err);
@@ -91,7 +117,6 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
   };
 
   const handleCopyLinkShare = async () => {
-    setShowShareMenu(false);
     try {
       const headers: Record<string, string> = {};
       if (token) {
@@ -111,55 +136,75 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
 
       if (typeof window !== "undefined") {
         const shareLink = `${window.location.origin}/?post_id=${post.id}`;
-        await navigator.clipboard.writeText(shareLink);
-        alert("Đã sao chép liên kết chia sẻ! 🔗");
+        const copied = await copyToClipboard(shareLink);
+        if (copied) {
+          toast({
+            title: "Đã sao chép! 🔗",
+            description: "Đã sao chép liên kết chia sẻ bài viết này.",
+            variant: "success"
+          });
+        } else {
+          toast({
+            title: "Thao tác thất bại ❌",
+            description: "Không thể tự động sao chép liên kết. Vui lòng sao chép thủ công: " + shareLink,
+            variant: "destructive"
+          });
+        }
       }
     } catch (err) {
       console.error("Lỗi khi chia sẻ:", err);
     }
   };
 
-  const handleReupPost = async () => {
-    setShowShareMenu(false);
+  const canDelete = user && (user.id === post.reviewerId || user.role === "admin");
+
+  const handleAuthenticatedAction = useCallback((action: () => void) => {
     if (!token) {
-      alert("Vui lòng đăng nhập để chia sẻ lại bài viết lên bảng tin.");
+      setShowLoginDialog(true);
       return;
     }
-    
-    if (!confirm("Bạn có chắc muốn chia sẻ lại bài viết này lên bảng tin của mình không?")) return;
+    action();
+  }, [token]);
 
-    try {
-      const res = await fetch(`/api/content/videos/${post.id}/reup`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        alert("Đã chia sẻ lại bài viết lên bảng tin của bạn! 🔁");
-        
-        // Trigger share count update in DB and locally
-        const shareRes = await fetch(`/api/interact/videos/${post.id}/share`, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (shareRes.ok) {
-          const shareData = await shareRes.json();
-          setShares(shareData.shares_count);
-          if (onShareUpdate) {
-            onShareUpdate(shareData.shares_count);
+  const handleFollow = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleAuthenticatedAction(async () => {
+      if (!post.reviewerId || (user && user.id === post.reviewerId)) return;
+
+      const previousFollowing = isFollowing;
+      const nextFollowing = !isFollowing;
+      setIsFollowing(nextFollowing); // Optimistic Update
+
+      try {
+        const endpoint = `/api/interact/users/${post.reviewerId}/${nextFollowing ? "follow" : "unfollow"}`;
+        const method = nextFollowing ? "POST" : "DELETE";
+        const res = await fetch(endpoint, {
+          method,
+          headers: {
+            "Authorization": `Bearer ${token}`
           }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setIsFollowing(data.is_following);
+          if (onFollowToggle) {
+            onFollowToggle(data.is_following);
+          }
+        } else {
+          setIsFollowing(previousFollowing); // Rollback on error
+          const err = await res.json();
+          toast({
+            title: "Thao tác thất bại",
+            description: err.detail || "Không thể thực hiện thao tác này.",
+            variant: "destructive"
+          });
         }
-      } else {
-        const err = await res.json();
-        alert(err.detail || "Không thể chia sẻ lại bài viết.");
+      } catch (err) {
+        setIsFollowing(previousFollowing); // Rollback on network error
+        console.error("Lỗi khi theo dõi:", err);
       }
-    } catch (err) {
-      console.error("Lỗi khi chia sẻ lại:", err);
-    }
+    });
   };
-
-  const canDelete = user && (user.id === post.reviewerId || user.role === "admin");
 
   const handleDeletePost = async () => {
     if (!token) return;
@@ -177,7 +222,11 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
         }
       } else {
         const errData = await response.json();
-        alert(errData.detail || "Không thể xóa bài viết.");
+        toast({
+          title: "Thao tác thất bại",
+          description: errData.detail || "Không thể xóa bài viết.",
+          variant: "destructive"
+        });
       }
     } catch (err) {
       console.error("Lỗi khi xóa bài viết:", err);
@@ -185,38 +234,64 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
   };
 
   const handleLike = async () => {
-    if (!token || isLikePending.current) return;
-    try {
-      isLikePending.current = true;
-      const nextLiked = !post.isLiked;
-      const nextLikes = nextLiked ? post.likes + 1 : post.likes - 1;
-      
-      // Update parent state instantly for snappy UX!
-      if (onLikeToggle) {
-        onLikeToggle(nextLiked, nextLikes);
-      }
-
-      const res = await fetch(`/api/interact/videos/${post.id}/like`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
+    if (isLikePending.current) return;
+    handleAuthenticatedAction(async () => {
+      try {
+        isLikePending.current = true;
+        const nextLiked = !post.isLiked;
+        const nextLikes = nextLiked ? post.likes + 1 : post.likes - 1;
+        
+        // Update parent state instantly for snappy UX!
         if (onLikeToggle) {
-          onLikeToggle(data.liked, data.likes_count);
+          onLikeToggle(nextLiked, nextLikes);
         }
+
+        const res = await fetch(`/api/interact/videos/${post.id}/like`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (onLikeToggle) {
+            onLikeToggle(data.liked, data.likes_count);
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi khi thả tim bài viết:", err);
+      } finally {
+        isLikePending.current = false;
       }
-    } catch (err) {
-      console.error("Lỗi khi thả tim bài viết:", err);
-    } finally {
-      isLikePending.current = false;
-    }
+    });
   };
 
   const handleSave = () => {
-    setIsSaved(!isSaved);
+    handleAuthenticatedAction(() => {
+      const nextSaved = !isSaved;
+      setIsSaved(nextSaved);
+      if (typeof window !== "undefined") {
+        const savedKey = user ? `saved_videos_${user.id}` : "saved_videos";
+        let saved = JSON.parse(localStorage.getItem(savedKey) || "[]");
+        if (nextSaved) {
+          const videoToSave = {
+            id: post.id,
+            title: post.caption || "",
+            thumbnail_url: post.thumbnail || post.image,
+            likes_count: post.likes,
+            post_type: (post.image.endsWith(".mp4") || post.image.includes("video") || post.image.includes("mixkit.co")) ? "video" : "image",
+            video_url: post.image,
+            description: post.caption
+          };
+          if (!saved.some((v: any) => String(v.id) === String(post.id))) {
+            saved.push(videoToSave);
+          }
+        } else {
+          saved = saved.filter((v: any) => String(v.id) !== String(post.id));
+        }
+        localStorage.setItem(savedKey, JSON.stringify(saved));
+      }
+    });
   };
 
 
@@ -227,7 +302,7 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
     return num.toString();
   };
 
-  return (
+  return (<>
     <div className="rounded-[2.25rem] bg-white/40 dark:bg-neutral-900/10 border border-neutral-200/50 dark:border-neutral-800/40 p-2 shadow-xl shadow-neutral-200/5 dark:shadow-black/20 backdrop-blur-xl mb-6 transition-all duration-500 hover:shadow-2xl hover:border-orange-500/20 group/post">
       <article className="rounded-[calc(2.25rem-8px)] bg-card border border-neutral-100/70 dark:border-neutral-800/60 overflow-hidden transition-all duration-500 shadow-inner">
         {/* Header */}
@@ -240,14 +315,25 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
               </Avatar>
             </Link>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <Link href={post.reviewerId ? `/profile/${post.reviewerId}` : "/profile"} className="hover:underline cursor-pointer">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground/75 font-semibold">@{post.user.username}</p>
                 </Link>
-                {post.reupFromUser && (
-                  <span className="text-[9px] font-bold text-orange-500 flex items-center gap-0.5 bg-orange-500/5 px-1.5 py-0.5 rounded-full border border-orange-500/10">
-                    🔁 chia sẻ lại từ @{post.reupFromUser.username}
-                  </span>
+                {post.reviewerId && user?.id !== post.reviewerId && (
+                  <>
+                    <span className="text-[10px] text-muted-foreground/40 font-bold">•</span>
+                    <button 
+                      onClick={handleFollow}
+                      className={cn(
+                        "text-[10px] font-extrabold transition-all duration-150 active:scale-95 cursor-pointer pb-0.5",
+                        isFollowing 
+                          ? "text-neutral-400 dark:text-neutral-500 hover:text-foreground" 
+                          : "text-orange-500 hover:text-orange-600"
+                      )}
+                    >
+                      {isFollowing ? "Đang theo dõi" : "Theo dõi"}
+                    </button>
+                  </>
                 )}
               </div>
               <div 
@@ -361,11 +447,11 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
             <div className="flex items-center gap-4">
               <button
                 onClick={handleLike}
-                className="flex items-center gap-1.5 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-red-500 group/like"
+                className="flex items-center gap-1.5 transition-all duration-150 hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-red-500 group/like"
               >
                 <Heart
                   className={cn(
-                    "w-5 h-5 stroke-[1.5] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                    "w-5 h-5 stroke-[1.5] transition-all duration-150",
                     post.isLiked
                       ? "text-red-500 fill-red-500 stroke-[2] scale-110"
                       : "group-hover/like:stroke-red-500 group-hover/like:scale-105"
@@ -376,60 +462,30 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
               
               <button 
                 onClick={onCommentClick || onPostClick}
-                className="flex items-center gap-1.5 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-orange-500 group/comment"
+                className="flex items-center gap-1.5 transition-all duration-150 hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-orange-500 group/comment"
               >
-                <MessageCircle className="w-5 h-5 stroke-[1.5] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/comment:stroke-orange-500 group-hover/comment:scale-105" />
+                <MessageCircle className="w-5 h-5 stroke-[1.5] transition-all duration-150 group-hover/comment:stroke-orange-500 group-hover/comment:scale-105" />
                 <span className="text-xs font-bold tracking-wide">
                   {formatNumber(post.comments)}
                 </span>
               </button>
               
-              <div className="relative">
-                <button 
-                  onClick={() => setShowShareMenu(!showShareMenu)} 
-                  className={cn(
-                    "flex items-center gap-1.5 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-blue-500 group/share",
-                    showShareMenu && "text-blue-500 scale-105"
-                  )}
-                >
-                  <Share2 className="w-5 h-5 stroke-[1.5] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/share:stroke-blue-500 group-hover/share:scale-105" />
-                  <span className="text-xs font-bold tracking-wide">{formatNumber(shares)}</span>
-                </button>
-                
-                {showShareMenu && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-30" 
-                      onClick={() => setShowShareMenu(false)}
-                    />
-                    <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-neutral-950 border border-neutral-200/60 dark:border-neutral-800/60 rounded-2xl shadow-xl py-1.5 z-40 animate-in fade-in slide-in-from-top-1 duration-150 space-y-1">
-                      <button
-                        onClick={handleCopyLinkShare}
-                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer"
-                      >
-                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span>Sao chép liên kết</span>
-                      </button>
-                      <button
-                        onClick={handleReupPost}
-                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer border-t border-border/10 pt-1"
-                      >
-                        <Repeat className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span>Chia sẻ lên bảng tin</span>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+              <button 
+                onClick={handleCopyLinkShare}
+                className="flex items-center gap-1.5 transition-all duration-150 hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-blue-500 group/share"
+              >
+                <Share2 className="w-5 h-5 stroke-[1.5] transition-all duration-150 group-hover/share:stroke-blue-500 group-hover/share:scale-105" />
+                <span className="text-xs font-bold tracking-wide">{formatNumber(shares)}</span>
+              </button>
             </div>
             
             <button 
               onClick={handleSave} 
-              className="transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-amber-500 group/save"
+              className="transition-all duration-150 hover:scale-110 active:scale-95 text-neutral-600 dark:text-neutral-400 hover:text-amber-500 group/save"
             >
               <Bookmark
                 className={cn(
-                  "w-5 h-5 stroke-[1.5] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                  "w-5 h-5 stroke-[1.5] transition-all duration-150",
                   isSaved
                     ? "text-amber-500 fill-amber-500 stroke-[2] scale-110"
                     : "group-hover/save:stroke-amber-500 group-hover/save:scale-105"
@@ -446,5 +502,6 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
         </div>
       </article>
     </div>
-  );
+    <LoginRequiredDialog isOpen={showLoginDialog} onClose={() => setShowLoginDialog(false)} />
+  </>);
 }

@@ -142,6 +142,20 @@ def unfollow_user_endpoint(
 ):
     return services.unfollow_user(db=db, follower_id=current_user.id, following_id=user_id)
 
+@router.get(
+    "/users/me/following",
+    response_model=List[schemas.FollowedUserResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Danh sách người dùng đang theo dõi",
+    description="Trả về danh sách người dùng mà tài khoản hiện tại đang theo dõi. Yêu cầu đăng nhập."
+)
+def get_following_users_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return services.get_followed_users(db=db, current_user_id=current_user.id)
+
+
 @router.post(
     "/videos/{video_id}/hide",
     status_code=status.HTTP_200_OK,

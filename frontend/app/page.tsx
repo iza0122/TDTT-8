@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { formatRelativeTime } from "@/lib/time";
 import { Header } from "@/components/header";
-import { CategoryFilter } from "@/components/category-filter";
 import { FoodPost } from "@/components/food-post";
 import { userProfile } from "@/lib/data";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { globalAppCache } from "@/lib/cache";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -34,7 +36,9 @@ import {
   Share2,
   MoreHorizontal,
   Trash2,
-  UserCheck
+  UserCheck,
+  Plus,
+  Utensils
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -52,40 +56,101 @@ interface Comment {
   createdAt: string;
   likes: number;
   replies?: Comment[];
+  isLiked?: boolean;
 }
 
 export default function HomePage() {
   const { user, token } = useAuth();
+  const { toast } = useToast();
   const displayName = user?.full_name || "Khách";
   const displayUsername = user?.email ? user.email.split('@')[0] : "guest";
-  const displayAvatar = user?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop";
-
-  const [postsList, setPostsList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [suggestedRestaurants, setSuggestedRestaurants] = useState<any[]>([]);
-  const [showModalMenu, setShowModalMenu] = useState(false);
-  const pendingLikes = useRef<Record<string, boolean>>({});
+  const displayAvatar = user?.avatar_url || "";
 
   const searchParams = useSearchParams();
   const feedType = searchParams?.get("feed") === "following" ? "following" : "all";
 
+  const [postsList, setPostsList] = useState<any[]>(() => {
+    return feedType === "following" 
+      ? [] 
+      : (globalAppCache.posts || []);
+  });
+  const [followingList, setFollowingList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(() => {
+    const hasCache = feedType === "following" ? false : !!globalAppCache.posts;
+    return !hasCache;
+  });
+  const [suggestedRestaurants, setSuggestedRestaurants] = useState<any[]>(() => {
+    return globalAppCache.suggestedRestaurants || [];
+  });
+  const [showModalMenu, setShowModalMenu] = useState(false);
+  const pendingLikes = useRef<Record<string, boolean>>({});
+
   useEffect(() => {
+    if (feedType === "following") {
+      const fetchFollowing = async () => {
+        if (!token) {
+          setFollowingList([]);
+          setIsLoading(false);
+          return;
+        }
+        setIsLoading(true);
+        try {
+          const response = await fetch("/api/interact/users/me/following", {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            const mapped = data.map((u: any) => ({
+              id: u.id,
+              email: u.email,
+              full_name: u.full_name || "Blogger ẩm thực",
+              avatar_url: u.avatar_url || undefined,
+              role: u.role,
+              bio: u.bio || "Đam mê ẩm thực & Chia sẻ quán ngon",
+              followers_count: u.followers_count,
+              following_count: u.following_count,
+              is_following: u.is_following,
+              posts_count: u.posts_count,
+              username: u.email ? u.email.split('@')[0] : `user_${u.id}`
+            }));
+            setFollowingList(mapped);
+          }
+        } catch (err) {
+          console.error("Lỗi khi tải danh sách người đã follow:", err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchFollowing();
+      return;
+    }
+
     const fetchPosts = async () => {
-      setIsLoading(true);
+      const hasCache = !!globalAppCache.posts;
+      if (!hasCache) {
+        setIsLoading(true);
+      }
       try {
-        const url = `/api/content/videos?post_type=image${feedType === "following" ? "&following_only=true" : ""}`;
+        const url = "/api/content/videos?post_type=image";
         const response = await fetch(url, {
           headers: token ? { "Authorization": `Bearer ${token}` } : {}
         });
         if (response.ok) {
           const data = await response.json();
+          let savedIds: string[] = [];
+          if (typeof window !== "undefined") {
+            const savedKey = user ? `saved_videos_${user.id}` : "saved_videos";
+            const saved = JSON.parse(localStorage.getItem(savedKey) || "[]");
+            savedIds = saved.map((v: any) => String(v.id));
+          }
           const mapped = data.items.map((item: any) => ({
             id: String(item.id),
             reviewerId: item.reviewer_id,
             user: {
               name: item.user?.full_name || "Người dùng",
               username: item.user?.username || `user_${item.reviewer_id}`,
-              avatar: item.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+              avatar: item.user?.avatar_url || undefined,
+              is_following: item.user?.is_following || false
             },
             restaurant: {
               name: item.restaurant?.name || "Quán ăn ẩm thực",
@@ -103,14 +168,15 @@ export default function HomePage() {
               id: item.reup_from_user.id,
               name: item.reup_from_user.full_name || "Người dùng",
               username: item.reup_from_user.username || `user_${item.reup_from_user.id}`,
-              avatar: item.reup_from_user.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+              avatar: item.reup_from_user.avatar_url || undefined
             } : null,
             saves: Math.floor(Math.random() * 12) + 3,
-            createdAt: "Vừa xong",
+            createdAt: formatRelativeTime(item.created_at),
             isLiked: item.is_liked || false,
-            isSaved: false
+            isSaved: savedIds.includes(String(item.id))
           }));
           setPostsList(mapped);
+          globalAppCache.posts = mapped;
         }
       } catch (err) {
         console.error("Lỗi khi tải bài viết từ API:", err);
@@ -120,7 +186,7 @@ export default function HomePage() {
     };
 
     fetchPosts();
-  }, [token, feedType]);
+  }, [token, feedType, user?.id]);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -134,9 +200,10 @@ export default function HomePage() {
             address: item.address,
             category: item.category,
             rating: item.rating_avg,
-            image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=150"
+            image: item.image_url || undefined
           }));
           setSuggestedRestaurants(mapped);
+          globalAppCache.suggestedRestaurants = mapped;
         }
       } catch (err) {
         console.error("Lỗi khi tải gợi ý quán ăn:", err);
@@ -177,10 +244,10 @@ export default function HomePage() {
             user: {
               name: c.user?.full_name || "Người dùng",
               username: c.user?.email ? c.user.email.split("@")[0] : `user_${c.user?.id || 'unknown'}`,
-              avatar: c.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+              avatar: c.user?.avatar_url || undefined
             },
             content: c.content,
-            createdAt: "Hôm nay",
+            createdAt: formatRelativeTime(c.created_at),
             likes: c.likes_count,
             replies: c.replies ? c.replies.map((r: any) => ({
               id: String(r.id),
@@ -188,10 +255,10 @@ export default function HomePage() {
               user: {
                 name: r.user?.full_name || "Người dùng",
                 username: r.user?.email ? r.user.email.split("@")[0] : `user_${r.user?.id || 'unknown'}`,
-                avatar: r.user?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150"
+                avatar: r.user?.avatar_url || undefined
               },
               content: r.content,
-              createdAt: "Hôm nay",
+              createdAt: formatRelativeTime(r.created_at),
               likes: r.likes_count
             })) : []
           }));
@@ -208,6 +275,94 @@ export default function HomePage() {
 
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredFollowing = followingList.filter((u) => {
+    if (searchQuery.trim() !== "") {
+      const query = searchQuery.toLowerCase();
+      return (
+        u.full_name.toLowerCase().includes(query) ||
+        u.username.toLowerCase().includes(query) ||
+        u.bio.toLowerCase().includes(query)
+      );
+    }
+    return true;
+  });
+
+  const handleToggleFollowUser = async (userId: number, isCurrentlyFollowing: boolean) => {
+    if (!token) {
+      toast({
+        title: "Yêu cầu đăng nhập",
+        description: "Vui lòng đăng nhập để thực hiện chức năng này.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setFollowingList(prev => prev.map(u => {
+      if (u.id === userId) {
+        const nextFollowing = !isCurrentlyFollowing;
+        return {
+          ...u,
+          is_following: nextFollowing,
+          followers_count: nextFollowing ? u.followers_count + 1 : Math.max(0, u.followers_count - 1)
+        };
+      }
+      return u;
+    }));
+
+    try {
+      const endpoint = `/api/interact/users/${userId}/${isCurrentlyFollowing ? "unfollow" : "follow"}`;
+      const method = isCurrentlyFollowing ? "DELETE" : "POST";
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setFollowingList(prev => prev.map(u => {
+          if (u.id === userId) {
+            return {
+              ...u,
+              is_following: data.is_following,
+              followers_count: data.followers_count
+            };
+          }
+          return u;
+        }));
+      } else {
+        setFollowingList(prev => prev.map(u => {
+          if (u.id === userId) {
+            return {
+              ...u,
+              is_following: isCurrentlyFollowing,
+              followers_count: isCurrentlyFollowing ? u.followers_count + 1 : Math.max(0, u.followers_count - 1)
+            };
+          }
+          return u;
+        }));
+        toast({
+          title: "Lỗi kết nối",
+          description: "Không thể cập nhật trạng thái theo dõi lúc này.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error("Lỗi khi theo dõi:", err);
+      setFollowingList(prev => prev.map(u => {
+        if (u.id === userId) {
+          return {
+            ...u,
+            is_following: isCurrentlyFollowing,
+            followers_count: isCurrentlyFollowing ? u.followers_count + 1 : Math.max(0, u.followers_count - 1)
+          };
+        }
+        return u;
+      }));
+    }
+  };
 
   // Live filter logic
   const filteredPosts = postsList.filter((post) => {
@@ -372,72 +527,211 @@ export default function HomePage() {
             <Header />
           </div>
           
-          {/* Search Bar - Awwwards Command Style */}
-          <div className="bg-card border-b border-border/40 p-4">
-            <div className="max-w-lg mx-auto relative group">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-muted-foreground/60 group-focus-within:text-orange-500 transition-colors duration-300" />
-              <input
-                type="text"
-                placeholder="Tìm món ăn, nhà hàng, blogger..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-secondary/40 hover:bg-secondary/60 focus:bg-background text-foreground placeholder:text-muted-foreground/60 pl-10 pr-10 py-3 rounded-2xl border border-border/40 focus:border-orange-500/50 focus:ring-4 focus:ring-orange-500/10 focus:outline-none transition-all duration-500 text-xs font-semibold"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground p-1 rounded-full hover:bg-muted transition-all active:scale-90"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+          {/* Clean Editorial Header (Replacing Search & Categories Filter) */}
+          <div className="bg-card border-b border-border/40 px-6 py-5.5 flex items-center justify-between">
+            <h2 className="font-black text-sm tracking-tight text-foreground uppercase">
+              {feedType === "following" ? "Blogger & Quán ăn đang theo dõi" : "Bảng tin review ẩm thực"}
+            </h2>
+            <span className="rounded-full px-2.5 py-0.5 bg-orange-500/10 border border-orange-500/20 text-[9px] uppercase tracking-wider font-extrabold text-orange-500">
+              Live Feed
+            </span>
           </div>
-
-          {/* Categories Filter */}
-          <CategoryFilter activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
           
           {/* Posts Feed container */}
           <div className="max-w-lg mx-auto py-4 px-4 md:px-0">
             {isLoading ? (
-              <div className="space-y-6">
-                {[1, 2].map((i) => (
-                  <div 
-                    key={`skeleton-${i}`} 
-                    className="bg-card/45 dark:bg-card/25 rounded-3xl border border-border/40 p-5 space-y-4 animate-pulse shadow-xs"
-                  >
-                    {/* Header Skeleton */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-secondary/80 dark:bg-muted/30" />
-                        <div className="space-y-1.5">
-                          <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-24" />
-                          <div className="h-2.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-32" />
+              feedType === "following" ? (
+                <div className="space-y-5">
+                  {[1, 2, 3].map((i) => (
+                    <div 
+                      key={`following-skeleton-${i}`} 
+                      className="bg-card/45 dark:bg-card/25 rounded-3xl border border-border/40 p-5 space-y-4 animate-pulse shadow-xs"
+                    >
+                      <div className="flex gap-4 items-center">
+                        <div className="w-14 h-14 rounded-full bg-secondary/80 dark:bg-muted/30" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-2/5" />
+                          <div className="h-2.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-1/4" />
                         </div>
                       </div>
-                      <div className="w-7 h-7 rounded-full bg-secondary/80 dark:bg-muted/30" />
-                    </div>
-
-                    {/* Image Skeleton */}
-                    <div className="relative aspect-square rounded-2xl bg-secondary/50 dark:bg-muted/20 border border-border/10" />
-
-                    {/* Actions Skeleton */}
-                    <div className="space-y-3.5 pt-2">
+                      <div className="h-2.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-5/6" />
+                      <div className="h-px bg-border/40 w-full" />
                       <div className="flex justify-between items-center">
-                        <div className="flex gap-4">
-                          <div className="w-14 h-5 bg-secondary/80 dark:bg-muted/30 rounded-full" />
-                          <div className="w-14 h-5 bg-secondary/80 dark:bg-muted/30 rounded-full" />
-                        </div>
-                        <div className="w-6 h-6 bg-secondary/80 dark:bg-muted/30 rounded-full" />
-                      </div>
-                      <div className="space-y-2">
-                        <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-4/5" />
-                        <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-2/3" />
+                        <div className="h-4 bg-secondary/80 dark:bg-muted/30 rounded-full w-1/3" />
+                        <div className="h-8 bg-secondary/80 dark:bg-muted/30 rounded-full w-24" />
                       </div>
                     </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {[1, 2].map((i) => (
+                    <div 
+                      key={`skeleton-${i}`} 
+                      className="bg-card/45 dark:bg-card/25 rounded-3xl border border-border/40 p-5 space-y-4 animate-pulse shadow-xs"
+                    >
+                      {/* Header Skeleton */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-secondary/80 dark:bg-muted/30" />
+                          <div className="space-y-1.5">
+                            <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-24" />
+                            <div className="h-2.5 bg-secondary/80 dark:bg-muted/30 rounded-full w-32" />
+                          </div>
+                        </div>
+                        <div className="w-7 h-7 rounded-full bg-secondary/80 dark:bg-muted/30" />
+                      </div>
+
+                      {/* Image Skeleton */}
+                      <div className="relative aspect-square rounded-2xl bg-secondary/50 dark:bg-muted/20 border border-border/10" />
+
+                      {/* Actions Skeleton */}
+                      <div className="space-y-3.5 pt-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex gap-4">
+                            <div className="w-14 h-5 bg-secondary/80 dark:bg-muted/30 rounded-full" />
+                            <div className="w-14 h-5 bg-secondary/80 dark:bg-muted/30 rounded-full" />
+                          </div>
+                          <div className="w-6 h-6 bg-secondary/80 dark:bg-muted/30 rounded-full" />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-4/5" />
+                          <div className="h-3 bg-secondary/80 dark:bg-muted/30 rounded-full w-2/3" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : feedType === "following" ? (
+              !token ? (
+                <div className="text-center py-16 px-4 bg-card/45 rounded-3xl border border-border/40 shadow-xs max-w-md mx-auto my-4 space-y-4 animate-fade-in">
+                  <div className="w-14 h-14 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto text-orange-500">
+                    <UserCheck className="w-6 h-6" />
                   </div>
-                ))}
-              </div>
+                  <div className="space-y-1.5">
+                    <h3 className="font-bold text-sm text-foreground">Bạn chưa đăng nhập</h3>
+                    <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                      Vui lòng đăng nhập để xem và quản lý danh sách blogger & quán ngon đang theo dõi của bạn.
+                    </p>
+                  </div>
+                  <Link href="/login" className="inline-block">
+                    <Button className="text-xs font-bold rounded-full bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 transition-all active:scale-95 shadow-md">
+                      Đăng nhập ngay
+                    </Button>
+                  </Link>
+                </div>
+              ) : filteredFollowing.length > 0 ? (
+                <div className="space-y-5 animate-fade-in">
+                  {filteredFollowing.map((u, index) => {
+                    const isBlogger = u.role === "reviewer";
+                    const labelText = isBlogger ? "Blogger" : "Quán ăn";
+                    const badgeColor = isBlogger 
+                      ? "bg-amber-500/10 text-amber-500 border-amber-500/20 dark:bg-amber-500/15" 
+                      : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 dark:bg-emerald-500/15";
+
+                    return (
+                      <div 
+                        key={`following-${u.id}-${index}`}
+                        className="p-[1px] bg-gradient-to-br from-neutral-200/40 via-neutral-100/50 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent hover:from-orange-500/20 hover:via-amber-500/10 hover:to-transparent rounded-3xl transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99] group animate-slide-up-slow"
+                      >
+                        {/* INNER CORE (Double Bezel) */}
+                        <div className="bg-card/90 dark:bg-neutral-950/40 p-5 rounded-[23px] flex flex-col gap-3.5 border border-white/20 dark:border-white/5 shadow-inner">
+                          
+                          <div className="flex gap-4 items-start">
+                            <Link href={`/profile?userId=${u.id}`} className="block cursor-pointer">
+                              <div className="p-0.5 bg-gradient-to-tr from-orange-500/30 to-amber-500/30 rounded-full group-hover:scale-103 transition-transform duration-300">
+                                <Avatar className="w-12 h-12 ring-2 ring-background">
+                                  <AvatarImage src={u.avatar_url} alt={u.full_name} className="object-cover" />
+                                  <AvatarFallback className="bg-primary/20 text-primary font-bold text-lg">{u.full_name[0]}</AvatarFallback>
+                                </Avatar>
+                              </div>
+                            </Link>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Link href={`/profile?userId=${u.id}`} className="hover:text-primary transition-colors cursor-pointer">
+                                  <h3 className="font-extrabold text-sm text-foreground truncate">{u.full_name}</h3>
+                                </Link>
+                                <span className={`px-2 py-0.5 text-[8px] uppercase tracking-wider font-extrabold rounded-full border ${badgeColor}`}>
+                                  {labelText}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground/60 truncate mt-0.5">@{u.username}</p>
+                              <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed font-semibold">
+                                {u.bio}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="h-px bg-border/40 w-full" />
+
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex gap-4 text-center">
+                              <div>
+                                <p className="font-extrabold text-xs text-foreground">{u.posts_count}</p>
+                                <p className="text-[8px] text-muted-foreground/50 font-bold uppercase tracking-wider mt-0.5 font-sans">Bài viết</p>
+                              </div>
+                              <div className="w-px h-5 bg-border/30" />
+                              <div>
+                                <p className="font-extrabold text-xs text-foreground">{u.followers_count}</p>
+                                <p className="text-[8px] text-muted-foreground/50 font-bold uppercase tracking-wider mt-0.5 font-sans">Followers</p>
+                              </div>
+                              <div className="w-px h-5 bg-border/30" />
+                              <div>
+                                <p className="font-extrabold text-xs text-foreground">{u.following_count}</p>
+                                <p className="text-[8px] text-muted-foreground/50 font-bold uppercase tracking-wider mt-0.5 font-sans">Following</p>
+                              </div>
+                            </div>
+
+                            <Button
+                              size="sm"
+                              onClick={() => handleToggleFollowUser(u.id, u.is_following)}
+                              className={`h-7 px-4.5 rounded-full text-xs font-bold transition-all duration-300 cursor-pointer ${
+                                u.is_following 
+                                  ? "bg-secondary hover:bg-destructive/10 hover:text-destructive text-muted-foreground border border-border"
+                                  : "bg-orange-500 hover:bg-orange-600 text-white shadow-xs"
+                              }`}
+                            >
+                              {u.is_following ? "Đang theo dõi" : "Theo dõi lại"}
+                            </Button>
+                          </div>
+
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-16 px-4 bg-card/45 rounded-3xl border border-border/40 shadow-xs max-w-md mx-auto my-4 space-y-4 animate-fade-in">
+                  <div className="w-14 h-14 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto text-orange-500">
+                    <UserCheck className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="font-bold text-sm text-foreground">Chưa theo dõi ai</h3>
+                    <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                      {searchQuery ? "Không tìm thấy blogger hoặc quán ngon nào khớp với từ khóa tìm kiếm." : "Danh sách đang theo dõi của bạn còn trống. Hãy khám phá và theo dõi các blogger nổi bật hoặc quán ngon xung quanh!"}
+                    </p>
+                  </div>
+                  {!searchQuery && (
+                    <Link href="/">
+                      <Button className="text-xs font-bold rounded-full bg-orange-500 hover:bg-orange-600 text-white px-6">
+                        Khám phá ngay
+                      </Button>
+                    </Link>
+                  )}
+                  {searchQuery && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setSearchQuery("")}
+                      className="text-xs font-bold rounded-full"
+                    >
+                      Xóa tìm kiếm
+                    </Button>
+                  )}
+                </div>
+              )
             ) : filteredPosts.length > 0 ? (
               filteredPosts.map((post, index) => (
                 <FoodPost 
@@ -468,33 +762,59 @@ export default function HomePage() {
                       return p;
                     }));
                   }}
+                  onFollowToggle={(isFollowing) => {
+                    setPostsList(prev => prev.map(p => {
+                      if (p.reviewerId === post.reviewerId) {
+                        return {
+                          ...p,
+                          user: { ...p.user, is_following: isFollowing }
+                        };
+                      }
+                      return p;
+                    }));
+                  }}
                   onDelete={() => {
                     setPostsList(prev => prev.filter(p => p.id !== post.id));
                   }}
                 />
               ))
             ) : (
-              <div className="text-center py-16 px-4 bg-card/45 rounded-3xl border border-border/40 shadow-xs max-w-md mx-auto my-4 space-y-4">
-                <div className="w-14 h-14 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto text-orange-500">
-                  <Search className="w-6 h-6" />
+              <div className="p-1.5 bg-orange-500/5 dark:bg-white/5 border border-orange-500/10 dark:border-white/10 rounded-[2.5rem] shadow-xl animate-fade-in max-w-md mx-auto my-8">
+                <div className="p-8 rounded-[calc(2.5rem-0.375rem)] bg-card border border-border/40 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] text-center space-y-6 flex flex-col items-center">
+                  
+                  {/* Eyebrow Badge */}
+                  <span className="rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-bold bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                    Bảng tin ẩm thực
+                  </span>
+                  
+                  {/* Animated Icon Container */}
+                  <div className="relative w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center text-orange-500 border border-orange-500/20 shadow-md animate-bounce duration-1000">
+                    <Utensils className="w-8 h-8 stroke-[1.5]" />
+                    <Plus className="w-4 h-4 absolute -bottom-1 -right-1 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold" />
+                  </div>
+                  
+                  {/* Text Block */}
+                  <div className="space-y-2">
+                    <h3 className="font-black text-lg text-foreground tracking-tight uppercase bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
+                      Chưa có bài viết nào
+                    </h3>
+                    <p className="text-xs text-muted-foreground/80 leading-relaxed font-semibold max-w-xs mx-auto">
+                      Cộng đồng chưa chia sẻ bài đăng ẩm thực nào. Hãy là người đầu tiên khai phá và giới thiệu quán ngon yêu thích của bạn ngay hôm nay!
+                    </p>
+                  </div>
+
+                  {/* Nested CTA & Island Button Architecture */}
+                  <div className="pt-2 w-full">
+                    <Link href="/create" className="w-full block">
+                      <button className="w-full bg-orange-500 text-white hover:bg-orange-600 shadow-md hover:shadow-lg flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer">
+                        <span className="whitespace-nowrap">Chia sẻ món ngon đầu tiên</span>
+                        <div className="w-6.5 h-6.5 bg-white/20 rounded-full flex items-center justify-center transition-all duration-300 group-hover:translate-x-0.5">
+                          <Camera className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      </button>
+                    </Link>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <h3 className="font-bold text-sm text-foreground">Không tìm thấy kết quả</h3>
-                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                    Thử tìm kiếm với từ khóa khác hoặc thay đổi bộ lọc món ăn xem sao nhé!
-                  </p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => {
-                    setSearchQuery("");
-                    setActiveCategory("all");
-                  }}
-                  className="text-xs font-bold rounded-full"
-                >
-                  Đặt lại bộ lọc
-                </Button>
               </div>
             )}
           </div>
@@ -525,8 +845,10 @@ export default function HomePage() {
                   <div className="p-2.5 rounded-[calc(1rem-2px)] bg-card/65 dark:bg-card/45 flex gap-3 shadow-inner">
                     <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-border/20 shadow-xs">
                       <Avatar className="w-12 h-12 rounded-xl">
-                        <AvatarImage src={res.image} alt={res.name} className="object-cover transition-transform duration-500 group-hover:scale-108" />
-                        <AvatarFallback>{res.name[0]}</AvatarFallback>
+                        {res.image ? (
+                          <AvatarImage src={res.image} alt={res.name} className="object-cover transition-transform duration-500 group-hover:scale-108" />
+                        ) : null}
+                        <AvatarFallback className="rounded-xl bg-orange-500/10 text-orange-500 font-bold text-sm">{res.name?.[0] || '?'}</AvatarFallback>
                       </Avatar>
                     </div>
                     <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
@@ -574,9 +896,79 @@ export default function HomePage() {
                       <p className="text-[9px] text-muted-foreground/60 truncate">@{post.user.username}</p>
                     </div>
                   </Link>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs font-extrabold text-orange-500 hover:text-white hover:bg-orange-500 px-3 rounded-full border border-orange-500/20 hover:scale-105 active:scale-95 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer">
-                    Theo dõi
-                  </Button>
+                  {post.reviewerId && user?.id !== post.reviewerId && (
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      onClick={async () => {
+                        if (!token) {
+                          toast({
+                            title: "Yêu cầu đăng nhập",
+                            description: "Vui lòng đăng nhập để theo dõi reviewer này.",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        const isCurrentlyFollowing = post.user.is_following || false;
+                        const nextFollowing = !isCurrentlyFollowing;
+                        
+                        // Optimistic Update
+                        setPostsList(prev => prev.map(p => {
+                          if (p.reviewerId === post.reviewerId) {
+                            return {
+                              ...p,
+                              user: { ...p.user, is_following: nextFollowing }
+                            };
+                          }
+                          return p;
+                        }));
+
+                        try {
+                          const endpoint = `/api/interact/users/${post.reviewerId}/${nextFollowing ? "follow" : "unfollow"}`;
+                          const method = nextFollowing ? "POST" : "DELETE";
+                          const res = await fetch(endpoint, {
+                            method,
+                            headers: {
+                              "Authorization": `Bearer ${token}`
+                            }
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            setPostsList(prev => prev.map(p => {
+                              if (p.reviewerId === post.reviewerId) {
+                                return {
+                                  ...p,
+                                  user: { ...p.user, is_following: data.is_following }
+                                };
+                              }
+                              return p;
+                            }));
+                          } else {
+                            // Rollback
+                            setPostsList(prev => prev.map(p => {
+                              if (p.reviewerId === post.reviewerId) {
+                                return {
+                                  ...p,
+                                  user: { ...p.user, is_following: isCurrentlyFollowing }
+                                };
+                              }
+                              return p;
+                            }));
+                          }
+                        } catch (err) {
+                          console.error("Lỗi khi theo dõi:", err);
+                        }
+                      }}
+                      className={cn(
+                        "h-7 text-xs font-extrabold px-3 rounded-full border hover:scale-105 active:scale-95 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] cursor-pointer",
+                        post.user.is_following
+                          ? "text-neutral-400 dark:text-neutral-500 border-neutral-200 dark:border-neutral-800 hover:text-foreground hover:bg-secondary/40"
+                          : "text-orange-500 border-orange-500/20 hover:text-white hover:bg-orange-500"
+                      )}
+                    >
+                      {post.user.is_following ? "Đang theo dõi" : "Theo dõi"}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -681,12 +1073,112 @@ export default function HomePage() {
                 };
 
                 const handleSaveDetail = () => {
+                  const nextSaved = !activePost.isSaved;
                   setPostsList(prev => prev.map(p => {
                     if (p.id === activePost.id) {
-                      return { ...p, isSaved: !p.isSaved };
+                      return { ...p, isSaved: nextSaved };
                     }
                     return p;
                   }));
+                  if (typeof window !== "undefined") {
+                    const savedKey = user ? `saved_videos_${user.id}` : "saved_videos";
+                    let saved = JSON.parse(localStorage.getItem(savedKey) || "[]");
+                    if (nextSaved) {
+                      const videoToSave = {
+                        id: activePost.id,
+                        title: activePost.caption || "",
+                        thumbnail_url: activePost.thumbnail || activePost.image,
+                        likes_count: activePost.likes,
+                        post_type: (activePost.image.endsWith(".mp4") || activePost.image.includes("video") || activePost.image.includes("mixkit.co")) ? "video" : "image",
+                        video_url: activePost.image,
+                        description: activePost.caption
+                      };
+                      if (!saved.some((v: any) => String(v.id) === String(activePost.id))) {
+                        saved.push(videoToSave);
+                      }
+                    } else {
+                      saved = saved.filter((v: any) => String(v.id) !== String(activePost.id));
+                    }
+                    localStorage.setItem(savedKey, JSON.stringify(saved));
+                  }
+                };
+
+                const handleFollowDetail = async () => {
+                  if (!token) {
+                    toast({
+                      title: "Yêu cầu đăng nhập",
+                      description: "Vui lòng đăng nhập để theo dõi reviewer này.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  if (!activePost.reviewerId || user?.id === activePost.reviewerId) return;
+
+                  const previousFollowing = activePost.user.is_following;
+                  const nextFollowing = !previousFollowing;
+
+                  // Optimistic update
+                  setPostsList(prev => prev.map(p => {
+                    if (p.reviewerId === activePost.reviewerId) {
+                      return {
+                        ...p,
+                        user: { ...p.user, is_following: nextFollowing }
+                      };
+                    }
+                    return p;
+                  }));
+
+                  try {
+                    const endpoint = `/api/interact/users/${activePost.reviewerId}/${nextFollowing ? "follow" : "unfollow"}`;
+                    const method = nextFollowing ? "POST" : "DELETE";
+                    const res = await fetch(endpoint, {
+                      method,
+                      headers: {
+                        "Authorization": `Bearer ${token}`
+                      }
+                    });
+                    if (res.ok) {
+                      const data = await res.json();
+                      setPostsList(prev => prev.map(p => {
+                        if (p.reviewerId === activePost.reviewerId) {
+                          return {
+                            ...p,
+                            user: { ...p.user, is_following: data.is_following }
+                          };
+                        }
+                        return p;
+                      }));
+                    } else {
+                      // Rollback on error
+                      setPostsList(prev => prev.map(p => {
+                        if (p.reviewerId === activePost.reviewerId) {
+                          return {
+                            ...p,
+                            user: { ...p.user, is_following: previousFollowing }
+                          };
+                        }
+                        return p;
+                      }));
+                      const err = await res.json();
+                      toast({
+                        title: "Thao tác thất bại",
+                        description: err.detail || "Không thể thực hiện thao tác này.",
+                        variant: "destructive"
+                      });
+                    }
+                  } catch (err) {
+                    // Rollback on network error
+                    setPostsList(prev => prev.map(p => {
+                      if (p.reviewerId === activePost.reviewerId) {
+                        return {
+                          ...p,
+                          user: { ...p.user, is_following: previousFollowing }
+                        };
+                      }
+                      return p;
+                    }));
+                    console.error("Lỗi khi theo dõi:", err);
+                  }
                 };
 
                 const handleSendComment = async (e?: React.FormEvent) => {
@@ -714,7 +1206,7 @@ export default function HomePage() {
                         user: {
                           name: user?.full_name || displayName,
                           username: user?.email ? user.email.split("@")[0] : displayUsername,
-                          avatar: user?.avatar_url || displayAvatar,
+                          avatar: user?.avatar_url || displayAvatar || "",
                         },
                         content: c.content,
                         createdAt: "Vừa xong",
@@ -778,6 +1270,26 @@ export default function HomePage() {
                           
                           <button 
                             onClick={async () => {
+                              const isLiked = !!comment.isLiked;
+                              const nextLiked = !isLiked;
+                              const nextLikes = nextLiked ? comment.likes + 1 : Math.max(0, comment.likes - 1);
+                              
+                              // Optimistic update
+                              setActiveComments(prev => {
+                                const updateLike = (cList: Comment[]): Comment[] => {
+                                  return cList.map(c => {
+                                    if (c.id === comment.id) {
+                                      return { ...c, isLiked: nextLiked, likes: nextLikes };
+                                    }
+                                    if (c.replies && c.replies.length > 0) {
+                                      return { ...c, replies: updateLike(c.replies) };
+                                    }
+                                    return c;
+                                  });
+                                };
+                                return updateLike(prev);
+                              });
+
                               try {
                                 const response = await fetch(`/api/interact/comments/${comment.id}/like`, {
                                   method: "POST",
@@ -791,7 +1303,23 @@ export default function HomePage() {
                                     const updateLike = (cList: Comment[]): Comment[] => {
                                       return cList.map(c => {
                                         if (c.id === comment.id) {
-                                          return { ...c, likes: data.likes_count };
+                                          return { ...c, isLiked: data.liked, likes: data.likes_count };
+                                        }
+                                        if (c.replies && c.replies.length > 0) {
+                                          return { ...c, replies: updateLike(c.replies) };
+                                        }
+                                        return c;
+                                      });
+                                    };
+                                    return updateLike(prev);
+                                  });
+                                } else {
+                                  // Rollback on error
+                                  setActiveComments(prev => {
+                                    const updateLike = (cList: Comment[]): Comment[] => {
+                                      return cList.map(c => {
+                                        if (c.id === comment.id) {
+                                          return { ...c, isLiked: isLiked, likes: comment.likes };
                                         }
                                         if (c.replies && c.replies.length > 0) {
                                           return { ...c, replies: updateLike(c.replies) };
@@ -804,11 +1332,26 @@ export default function HomePage() {
                                 }
                               } catch (err) {
                                 console.error("Lỗi khi thích bình luận:", err);
+                                // Rollback on network error
+                                setActiveComments(prev => {
+                                  const updateLike = (cList: Comment[]): Comment[] => {
+                                    return cList.map(c => {
+                                      if (c.id === comment.id) {
+                                        return { ...c, isLiked: isLiked, likes: comment.likes };
+                                      }
+                                      if (c.replies && c.replies.length > 0) {
+                                        return { ...c, replies: updateLike(c.replies) };
+                                      }
+                                      return c;
+                                    });
+                                  };
+                                  return updateLike(prev);
+                                });
                               }
                             }}
                             className="hover:text-red-500 hover:bg-red-500/5 px-2 py-0.5 rounded-md transition-all duration-300 flex items-center gap-1 cursor-pointer"
                           >
-                            <span>{comment.likes > 0 ? "❤️" : "🤍"} Thích</span>
+                            <span>{comment.isLiked ? "❤️" : (comment.likes > 0 && comment.isLiked !== false ? "❤️" : "🤍")} Thích</span>
                             {comment.likes > 0 && <span className="text-[8px] bg-red-500/10 px-1 rounded-sm text-red-500 font-extrabold">{comment.likes}</span>}
                           </button>
                           
@@ -823,6 +1366,32 @@ export default function HomePage() {
                             <button
                               onClick={async () => {
                                 if (!confirm("Bạn có chắc chắn muốn xóa bình luận này không?")) return;
+                                
+                                const originalComments = [...activeComments];
+                                
+                                // Optimistic delete from screen
+                                setActiveComments(prev => {
+                                  const removeComment = (cList: Comment[]): Comment[] => {
+                                    return cList
+                                      .filter(c => c.id !== comment.id)
+                                      .map(c => {
+                                        if (c.replies && c.replies.length > 0) {
+                                          return { ...c, replies: removeComment(c.replies) };
+                                        }
+                                        return c;
+                                      });
+                                  };
+                                  return removeComment(prev);
+                                });
+                                
+                                // Optimistic decrement count
+                                setPostsList(prev => prev.map(p => {
+                                  if (p.id === activePost.id) {
+                                    return { ...p, comments: Math.max(0, p.comments - 1) };
+                                  }
+                                  return p;
+                                }));
+
                                 try {
                                   const response = await fetch(`/api/interact/comments/${comment.id}`, {
                                     method: "DELETE",
@@ -830,32 +1399,32 @@ export default function HomePage() {
                                       "Authorization": `Bearer ${token}`
                                     }
                                   });
-                                  if (response.ok) {
-                                    setActiveComments(prev => {
-                                      const removeComment = (cList: Comment[]): Comment[] => {
-                                        return cList
-                                          .filter(c => c.id !== comment.id)
-                                          .map(c => {
-                                            if (c.replies && c.replies.length > 0) {
-                                              return { ...c, replies: removeComment(c.replies) };
-                                            }
-                                            return c;
-                                          });
-                                      };
-                                      return removeComment(prev);
-                                    });
+                                  if (!response.ok) {
+                                    // Rollback on API error
+                                    setActiveComments(originalComments);
                                     setPostsList(prev => prev.map(p => {
                                       if (p.id === activePost.id) {
-                                        return { ...p, comments: Math.max(0, p.comments - 1) };
+                                        return { ...p, comments: p.comments + 1 };
                                       }
                                       return p;
                                     }));
-                                  } else {
                                     const errData = await response.json();
-                                    alert(errData.detail || "Không thể xóa bình luận.");
+                                    toast({
+                                      title: "Thao tác thất bại",
+                                      description: errData.detail || "Không thể xóa bình luận.",
+                                      variant: "destructive"
+                                    });
                                   }
                                 } catch (err) {
                                   console.error("Lỗi khi xóa bình luận:", err);
+                                  // Rollback on network error
+                                  setActiveComments(originalComments);
+                                  setPostsList(prev => prev.map(p => {
+                                    if (p.id === activePost.id) {
+                                      return { ...p, comments: p.comments + 1 };
+                                    }
+                                    return p;
+                                  }));
                                 }
                               }}
                               className="hover:text-red-500 hover:bg-red-500/5 px-2 py-0.5 rounded-md transition-all duration-300 flex items-center gap-1 cursor-pointer"
@@ -888,7 +1457,25 @@ export default function HomePage() {
                             <AvatarFallback>{activePost.user.name[0]}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="text-xs text-muted-foreground/75 font-semibold">@{activePost.user.username}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-xs text-muted-foreground/75 font-semibold">@{activePost.user.username}</p>
+                              {activePost.reviewerId && user?.id !== activePost.reviewerId && (
+                                <>
+                                  <span className="text-[10px] text-muted-foreground/45 font-bold">•</span>
+                                  <button 
+                                    onClick={handleFollowDetail}
+                                    className={cn(
+                                      "text-[10px] font-extrabold transition-all duration-150 active:scale-95 cursor-pointer pb-0.5",
+                                      activePost.user.is_following 
+                                        ? "text-neutral-400 dark:text-neutral-500 hover:text-foreground" 
+                                        : "text-orange-500 hover:text-orange-600"
+                                    )}
+                                  >
+                                    {activePost.user.is_following ? "Đang theo dõi" : "Theo dõi"}
+                                  </button>
+                                </>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1 text-[13px] font-extrabold text-foreground mt-0.5 hover:text-orange-500 transition-colors cursor-pointer">
                               <MapPin className="w-3 h-3 text-orange-500 fill-orange-500/15" />
                               <span>{activePost.restaurant.name}</span>
@@ -929,9 +1516,13 @@ export default function HomePage() {
                                           setSelectedPostId(null);
                                           setPostsList(prev => prev.filter(p => p.id !== activePost.id));
                                         } else {
-                                          const errData = await response.json();
-                                          alert(errData.detail || "Không thể xóa bài viết.");
-                                        }
+                                           const errData = await response.json();
+                                           toast({
+                                             title: "Thao tác thất bại",
+                                             description: errData.detail || "Không thể xóa bài viết.",
+                                             variant: "destructive"
+                                           });
+                                         }
                                       } catch (err) {
                                         console.error("Lỗi khi xóa bài viết:", err);
                                       }

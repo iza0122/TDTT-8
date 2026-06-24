@@ -51,6 +51,7 @@ class MerchantSearchResponse(BaseModel):
     description: Optional[str] = None
     rating_avg: float
     distance: float  # In kilometers
+    image_url: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -63,3 +64,18 @@ class FollowToggleResponse(BaseModel):
 class ShareResponse(BaseModel):
     shares_count: int
     message: str
+
+class FollowedUserResponse(BaseModel):
+    id: int
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    role: str
+    bio: Optional[str] = None
+    followers_count: int = 0
+    following_count: int = 0
+    is_following: bool = True
+    posts_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+

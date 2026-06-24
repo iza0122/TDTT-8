@@ -163,7 +163,7 @@ export default function PublicProfilePage() {
 
   const displayName = profileStats.full_name || "Blogger ẩn danh";
   const displayUsername = profileStats.email ? profileStats.email.split('@')[0] : `user_${profileStats.id}`;
-  const displayAvatar = profileStats.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop";
+  const displayAvatar = profileStats.avatar_url || "";
   const displayBio = profileStats.bio || "Đam mê ẩm thực & Chia sẻ quán ngon";
 
   const postsCount = profileStats.posts_count ?? 0;
@@ -251,18 +251,18 @@ export default function PublicProfilePage() {
               </div>
 
               {/* Micro CTAs - Follow button & Share button */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="flex flex-col gap-2.5 pt-2">
                 <button
                   onClick={handleFollowToggle}
                   disabled={isFollowPending}
                   className={cn(
-                    "flex-1 shadow-md hover:shadow-lg flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer",
+                    "w-full shadow-md hover:shadow-lg flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer",
                     profileStats.is_following
                       ? "bg-secondary text-foreground hover:bg-secondary/80 border border-border"
                       : "bg-orange-500 text-white hover:bg-orange-600"
                   )}
                 >
-                  <span>{profileStats.is_following ? "Đang theo dõi" : "Theo dõi"}</span>
+                  <span className="whitespace-nowrap">{profileStats.is_following ? "Đang theo dõi" : "Theo dõi"}</span>
                   <div className={cn(
                     "w-6.5 h-6.5 rounded-full flex items-center justify-center transition-all duration-350",
                     profileStats.is_following ? "bg-orange-500/10 text-orange-500" : "bg-white/20 text-white"
@@ -277,9 +277,9 @@ export default function PublicProfilePage() {
                 
                 <button 
                   onClick={handleShareProfile}
-                  className="flex-1 border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer"
+                  className="w-full border border-border bg-card hover:bg-secondary/40 text-foreground flex items-center justify-between rounded-full pl-6 pr-2.5 py-2.5 font-extrabold text-[11px] select-none transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-95 group cursor-pointer"
                 >
-                  <span>Chia sẻ hồ sơ</span>
+                  <span className="whitespace-nowrap">Chia sẻ hồ sơ</span>
                   <div className="w-6.5 h-6.5 bg-secondary dark:bg-white/10 rounded-full flex items-center justify-center transition-all duration-300 group-hover:rotate-12">
                     <Share2 className="w-3.5 h-3.5 text-foreground/80" />
                   </div>

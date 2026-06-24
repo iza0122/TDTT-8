@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, JSON, Index
 from sqlalchemy.orm import relationship
 from backend.core.database import Base
 
@@ -35,18 +35,28 @@ class User(Base):
 class Merchant(Base):
     __tablename__ = "merchants"
 
+    __table_args__ = (
+        Index("idx_merchants_location", "latitude", "longitude"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+    name = Column(String, nullable=False, index=True)
     address = Column(String, nullable=True)
-    category = Column(String, nullable=True)
+    category = Column(String, nullable=True, index=True)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     description = Column(Text, nullable=True)
-    rating_avg = Column(Float, default=0.0, nullable=False)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    rating_avg = Column(Float, default=0.0, nullable=False, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     
     # 4. CẢI TIẾN: Tránh lỗi "Hard-delete" nhà hàng làm mất sạch video/data của hệ thống
-    is_active = Column(Boolean, default=True, nullable=False) 
+    is_active = Column(Boolean, default=True, nullable=False, index=True) 
+    image_url = Column(String, nullable=True)
+    
+    slogan = Column(String, nullable=True)
+    hours = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -61,10 +71,13 @@ class Menu(Base):
     __tablename__ = "menus"
 
     id = Column(Integer, primary_key=True, index=True)
-    merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=False)
+    merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=False, index=True)
     dish_name = Column(String, nullable=False)
     price = Column(Integer, nullable=False)
     is_available = Column(Boolean, default=True, nullable=False)
+    description = Column(Text, nullable=True)
+    image_url = Column(String, nullable=True)
+    category = Column(String, nullable=True, default="Món ăn")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -81,17 +94,21 @@ class Video(Base):
     description = Column(Text, nullable=True)
     
     # 5. CẢI TIẾN QUAN TRỌNG: Thêm trạng thái kiểm duyệt video để tránh Reviewer đăng nội dung rác bừa bãi
-    status = Column(String, default="pending", nullable=False) # pending, approved, rejected
+    status = Column(String, default="pending", nullable=False, index=True) # pending, approved, rejected
     
     # 6. PHÂN LOẠI UX: video (Reels) hoặc image (Post)
-    post_type = Column(String, default="video", nullable=False)
+    post_type = Column(String, default="video", nullable=False, index=True)
     
     likes_count = Column(Integer, default=0, nullable=False)
     shares_count = Column(Integer, default=0, nullable=False)
-    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    tagged_merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=True)
-    reup_from_id = Column(Integer, ForeignKey("videos.id"), nullable=True) # ID bài viết gốc nếu là reup
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    comments_count = Column(Integer, default=0, nullable=False)
+    rating = Column(Integer, default=5, nullable=False)
+    merchant_response = Column(Text, nullable=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    tagged_merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=True, index=True)
+    reup_from_id = Column(Integer, ForeignKey("videos.id"), nullable=True, index=True) # ID bài viết gốc nếu là reup
+    meta_data = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     # Relationships
     reviewer = relationship("User", back_populates="videos")
@@ -106,9 +123,13 @@ class Video(Base):
 class Like(Base):
     __tablename__ = "likes"
 
+    __table_args__ = (
+        Index("idx_likes_user_video", "user_id", "video_id"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -120,10 +141,10 @@ class Comment(Base):
     __tablename__ = "comments"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
     content = Column(Text, nullable=False)
-    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True)
+    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True, index=True)
     likes_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -138,9 +159,13 @@ class Comment(Base):
 class CommentLike(Base):
     __tablename__ = "comment_likes"
 
+    __table_args__ = (
+        Index("idx_comment_likes_user_comment", "user_id", "comment_id"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    comment_id = Column(Integer, ForeignKey("comments.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    comment_id = Column(Integer, ForeignKey("comments.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -151,13 +176,16 @@ class Campaign(Base):
     __tablename__ = "campaigns"
 
     id = Column(Integer, primary_key=True, index=True)
-    merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=False)
+    merchant_id = Column(Integer, ForeignKey("merchants.id"), nullable=False, index=True)
     title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
     video_url = Column(String, nullable=False)
     thumbnail_url = Column(Text, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
     impressions_count = Column(Integer, default=0, nullable=False)
     clicks_count = Column(Integer, default=0, nullable=False)
+    start_date = Column(DateTime, default=datetime.utcnow, nullable=True)
+    end_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -166,24 +194,36 @@ class Campaign(Base):
 class UserFollow(Base):
     __tablename__ = "user_follows"
 
+    __table_args__ = (
+        Index("idx_user_follows_follower_following", "follower_id", "following_id"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
-    follower_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    following_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    follower_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    following_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class HiddenVideo(Base):
     __tablename__ = "hidden_videos"
 
+    __table_args__ = (
+        Index("idx_hidden_videos_user_video", "user_id", "video_id"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class UserShare(Base):
     __tablename__ = "user_shares"
 
+    __table_args__ = (
+        Index("idx_user_shares_user_video", "user_id", "video_id"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

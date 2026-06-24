@@ -25,6 +25,9 @@ if backend_dir not in sys.path:
 
 from backend.core.config import Settings, CORE_DIR
 
+# Disable loading the real .env file during unit tests to ensure test isolation
+Settings.model_config["env_file"] = None
+
 
 class TestConfigSettings(unittest.TestCase):
     

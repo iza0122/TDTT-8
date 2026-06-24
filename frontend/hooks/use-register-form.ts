@@ -111,13 +111,16 @@ export function useRegisterForm() {
 
     setIsLoading(true);
     try {
+      const role = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("role") || "reviewer" : "reviewer";
+
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: cleanEmail,
           password: formData.password,
-          full_name: cleanName
+          full_name: cleanName,
+          role: role
         })
       });
 

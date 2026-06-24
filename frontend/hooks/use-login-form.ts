@@ -38,7 +38,7 @@ export function useLoginForm() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, loginRole: "reviewer" | "merchant" = "reviewer") => {
     e.preventDefault();
     setError(null);
     setFieldErrors({});
@@ -100,6 +100,10 @@ export function useLoginForm() {
         }
       }
 
+      if (loginRole === "merchant" && data.user?.role !== "merchant" && data.user?.role !== "admin") {
+        throw new Error("Tài khoản của bạn không phải là tài khoản Đối tác (Merchant).");
+      }
+
       login(data.access_token, data.user, data.refresh_token);
 
       toast({
@@ -107,7 +111,13 @@ export function useLoginForm() {
         description: `Chào mừng ${data.user.full_name || 'bạn'} quay trở lại!`,
       });
 
-      router.push("/");
+      if (data.user?.role === "admin") {
+        router.push("/admin");
+      } else if (loginRole === "merchant" && data.user?.role === "merchant") {
+        router.push("/merchant");
+      } else {
+        router.push("/");
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
@@ -116,7 +126,7 @@ export function useLoginForm() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (loginRole: "reviewer" | "merchant" = "reviewer") => {
     setIsLoading(true);
     setError(null);
     setFieldErrors({});
@@ -142,6 +152,10 @@ export function useLoginForm() {
         throw new Error(data.detail || "Đồng bộ tài khoản Google thất bại.");
       }
 
+      if (loginRole === "merchant" && data.user?.role !== "merchant" && data.user?.role !== "admin") {
+        throw new Error("Tài khoản của bạn không phải là tài khoản Đối tác (Merchant).");
+      }
+
       login(data.access_token, data.user, data.refresh_token || result.user.refreshToken);
 
       toast({
@@ -149,7 +163,13 @@ export function useLoginForm() {
         description: `Chào mừng ${data.user.full_name || 'bạn'} đã tham gia cộng đồng!`,
       });
 
-      router.push("/");
+      if (data.user?.role === "admin") {
+        router.push("/admin");
+      } else if (loginRole === "merchant" && data.user?.role === "merchant") {
+        router.push("/merchant");
+      } else {
+        router.push("/");
+      }
     } catch (err: any) {
       console.error(err);
       // Hủy bỏ popup Google hoặc đóng popup không được xem là lỗi nghiêm trọng cần cảnh báo to

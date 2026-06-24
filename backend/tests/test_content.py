@@ -155,8 +155,8 @@ class TestContentRouter(BaseContentTest):
         
     def test_list_videos_success(self):
         # Tạo sẵn các video trong DB test
-        video1 = Video(title="Video 1", video_url="https://...", reviewer_id=self.user.id)
-        video2 = Video(title="Video 2", video_url="https://...", reviewer_id=self.user.id)
+        video1 = Video(title="Video 1", video_url="https://...", reviewer_id=self.user.id, status="approved")
+        video2 = Video(title="Video 2", video_url="https://...", reviewer_id=self.user.id, status="approved")
         self.db.add_all([video1, video2])
         self.db.commit()
         
