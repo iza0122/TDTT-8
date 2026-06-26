@@ -92,9 +92,10 @@ def get_admin_videos_endpoint(
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     status: Optional[str] = Query(None, description="Filter by video status (e.g., pending, approved, rejected)"),
+    post_type: Optional[str] = Query(None, description="Filter by post type (e.g., video, image)"),
 ):
-    videos = services.get_admin_videos(db, limit, offset, status)
-    total = services.get_admin_videos_count(db, status)
+    videos = services.get_admin_videos(db, limit, offset, status, post_type)
+    total = services.get_admin_videos_count(db, status, post_type)
     return {"items": videos, "total": total}
 
 @router.patch("/videos/{video_id}/status", response_model=schemas.AdminVideoResponse, summary="Cập nhật trạng thái video (Duyệt/Từ chối)")

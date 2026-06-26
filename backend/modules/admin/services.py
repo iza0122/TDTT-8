@@ -150,7 +150,8 @@ def get_admin_videos(
     db: Session,
     limit: int = 10,
     offset: int = 0,
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    post_type: Optional[str] = None
 ) -> List[Video]:
     from sqlalchemy.orm import joinedload
     query = db.query(Video).options(
@@ -160,17 +161,22 @@ def get_admin_videos(
 
     if status and status != "all":
         query = query.filter(Video.status == status)
+    if post_type and post_type != "all":
+        query = query.filter(Video.post_type == post_type)
 
     return query.offset(offset).limit(limit).all()
 
 def get_admin_videos_count(
     db: Session,
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    post_type: Optional[str] = None
 ) -> int:
     query = db.query(Video).join(User, Video.reviewer_id == User.id)
 
     if status and status != "all":
         query = query.filter(Video.status == status)
+    if post_type and post_type != "all":
+        query = query.filter(Video.post_type == post_type)
 
     return query.count()
 

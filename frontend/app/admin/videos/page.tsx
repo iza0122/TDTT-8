@@ -20,6 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CheckCircle,
   XCircle,
@@ -62,6 +63,7 @@ export default function AdminVideosPage() {
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<StatusTab>("pending");
+  const [postTypeFilter, setPostTypeFilter] = useState<string>("all");
   const [videos, setVideos] = useState<AdminVideo[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -84,6 +86,7 @@ export default function AdminVideosPage() {
         limit: LIMIT,
         offset: page * LIMIT,
         status: activeTab,
+        post_type: postTypeFilter,
       });
       setVideos(data.items ?? []);
       setTotal(data.total ?? 0);
@@ -92,7 +95,7 @@ export default function AdminVideosPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, activeTab]);
+  }, [token, page, activeTab, postTypeFilter]);
 
   useEffect(() => {
     fetchVideos();
@@ -107,6 +110,11 @@ export default function AdminVideosPage() {
 
   function handleTabChange(tab: string) {
     setActiveTab(tab as StatusTab);
+    setPage(0);
+  }
+
+  function handlePostTypeFilterChange(val: string) {
+    setPostTypeFilter(val);
     setPage(0);
   }
 
@@ -153,20 +161,36 @@ export default function AdminVideosPage() {
     <div className="space-y-6">
       <PageHeader title="Kiểm duyệt Nội dung" description="Duyệt hoặc từ chối video/bài đăng trên nền tảng" />
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList>
-          <TabsTrigger value="pending" className="gap-1.5">
-            Chờ duyệt
-            {pendingCount > 0 && (
-              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold">
-                {pendingCount > 99 ? "99+" : pendingCount}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="approved">Đã duyệt</TabsTrigger>
-          <TabsTrigger value="rejected">Đã từ chối</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-xl border border-border bg-card shadow-xs">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-auto">
+          <TabsList>
+            <TabsTrigger value="pending" className="gap-1.5">
+              Chờ duyệt
+              {pendingCount > 0 && (
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                  {pendingCount > 99 ? "99+" : pendingCount}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="approved">Đã duyệt</TabsTrigger>
+            <TabsTrigger value="rejected">Đã từ chối</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-semibold shrink-0">Phân loại:</span>
+          <Select value={postTypeFilter} onValueChange={handlePostTypeFilterChange}>
+            <SelectTrigger className="w-40 h-9 bg-background">
+              <SelectValue placeholder="Tất cả" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="video">Bài video</SelectItem>
+              <SelectItem value="image">Bài viết (Ảnh)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {error && (
         <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
@@ -196,13 +220,13 @@ export default function AdminVideosPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {videos.map((video) => (
-            <Card key={video.id} className="overflow-hidden gap-0 py-0">
+            <Card key={video.id} className="overflow-hidden gap-0 py-0 group hover:shadow-md transition-all duration-300">
               <div className="relative aspect-video bg-muted flex items-center justify-center overflow-hidden">
-                {video.thumbnail_url ? (
+                {video.thumbnail_url || (video.post_type === "image" && video.video_url) ? (
                   <img
-                    src={video.thumbnail_url}
+                    src={video.thumbnail_url || video.video_url || ""}
                     alt={video.title ?? ""}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
                   />
                 ) : (
                   <div className="flex flex-col items-center gap-1 text-muted-foreground">
@@ -214,17 +238,24 @@ export default function AdminVideosPage() {
                     <span className="text-xs">Không có thumbnail</span>
                   </div>
                 )}
+                {video.post_type === "video" && video.thumbnail_url && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/25 transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-white/95 shadow-md flex items-center justify-center text-primary group-hover:scale-105 active:scale-95 transition-transform duration-300">
+                      <Play className="w-4 h-4 fill-primary text-primary ml-0.5" />
+                    </div>
+                  </div>
+                )}
                 <div className="absolute top-2 left-2">
                   <Badge
                     variant="outline"
-                    className="text-[10px] bg-black/60 text-white border-white/20 backdrop-blur-sm"
+                    className="text-[10px] bg-black/60 text-white border-white/20 backdrop-blur-sm font-semibold px-2 py-0.5"
                   >
                     {video.post_type === "video" ? (
                       <Play className="w-2.5 h-2.5 mr-1" />
                     ) : (
                       <ImageIcon className="w-2.5 h-2.5 mr-1" />
                     )}
-                    {video.post_type}
+                    {video.post_type === "video" ? "Bài video" : "Bài viết (Ảnh)"}
                   </Badge>
                 </div>
               </div>
@@ -339,15 +370,15 @@ export default function AdminVideosPage() {
           </DialogHeader>
 
           <div className="space-y-4">
-            {previewVideo?.video_url ? (
+            {previewVideo?.post_type === "video" && previewVideo?.video_url ? (
               <video
                 src={previewVideo.video_url}
                 controls
                 className="w-full rounded-lg aspect-video bg-muted"
               />
-            ) : previewVideo?.thumbnail_url ? (
+            ) : (previewVideo?.post_type === "image" && previewVideo?.video_url) || previewVideo?.thumbnail_url ? (
               <img
-                src={previewVideo.thumbnail_url}
+                src={previewVideo?.video_url || previewVideo?.thumbnail_url || ""}
                 alt=""
                 className="w-full rounded-lg aspect-video object-cover bg-muted"
               />

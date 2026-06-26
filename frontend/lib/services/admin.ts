@@ -160,12 +160,13 @@ export async function patchMerchantActive(token: string, merchantId: number, is_
 
 export async function getAdminVideos(
   token: string,
-  params: { limit?: number; offset?: number; status?: string }
+  params: { limit?: number; offset?: number; status?: string; post_type?: string }
 ): Promise<PaginatedVideos> {
   const p = new URLSearchParams();
   if (params.limit !== undefined) p.set("limit", String(params.limit));
   if (params.offset !== undefined) p.set("offset", String(params.offset));
   if (params.status && params.status !== "all") p.set("status", params.status);
+  if (params.post_type && params.post_type !== "all") p.set("post_type", params.post_type);
   const res = await fetch(`${API_BASE}/admin/videos?${p}`, { headers: authHeaders(token) });
   return handleResponse<PaginatedVideos>(res);
 }
