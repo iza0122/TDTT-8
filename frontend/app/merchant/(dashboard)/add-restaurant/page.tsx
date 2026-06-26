@@ -60,6 +60,8 @@ export default function AddRestaurantPage() {
         description: `Quán ăn '${newMerchant.name}' đã được thêm.`, // Use newMerchant.name if available from response
         variant: "default"
       });
+      localStorage.setItem("selected_merchant_id", String(newMerchant.id));
+      localStorage.setItem("selected_merchant_name", newMerchant.name);
       router.push("/merchant"); // Redirect to merchant dashboard
     } catch (err: any) {
       console.error("Lỗi khi thêm quán ăn:", err);

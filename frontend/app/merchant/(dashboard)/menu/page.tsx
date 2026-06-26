@@ -149,6 +149,7 @@ export default function MenuManagementPage() {
           const activeMerchant = userMerchants.find(m => String(m.id) === savedId) || userMerchants[0];
           setMerchant(activeMerchant);
           localStorage.setItem("selected_merchant_id", String(activeMerchant.id));
+          localStorage.setItem("selected_merchant_name", activeMerchant.name);
 
           const details = await getMerchant(activeMerchant.id);
           const mappedDishes = (details.menus || []).map((m: any) => ({
@@ -182,6 +183,7 @@ export default function MenuManagementPage() {
     if (selected) {
       setMerchant(selected);
       localStorage.setItem("selected_merchant_id", merchantIdStr);
+      localStorage.setItem("selected_merchant_name", selected.name);
       setIsLoading(true);
       try {
         const details = await getMerchant(selected.id);

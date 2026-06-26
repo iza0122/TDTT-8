@@ -51,10 +51,20 @@ def create_menu_item(db: Session, merchant_id: int, menu: schemas.MenuCreate):
     return db_menu
 
 def get_merchants_by_owner(db: Session, owner_id: int):
-    return db.query(Merchant).filter(Merchant.owner_id == owner_id).all()
+    from sqlalchemy.orm import joinedload
+    return db.query(Merchant).options(
+        joinedload(Merchant.menus),
+        joinedload(Merchant.campaigns),
+        joinedload(Merchant.videos).joinedload(Video.reviewer)
+    ).filter(Merchant.owner_id == owner_id).all()
 
 def get_all_merchants(db: Session):
-    return db.query(Merchant).all()
+    from sqlalchemy.orm import joinedload
+    return db.query(Merchant).options(
+        joinedload(Merchant.menus),
+        joinedload(Merchant.campaigns),
+        joinedload(Merchant.videos).joinedload(Video.reviewer)
+    ).all()
 
 def toggle_campaign(db: Session, merchant_id: int, is_active: bool):
     campaign = db.query(Campaign).filter(Campaign.merchant_id == merchant_id).first()

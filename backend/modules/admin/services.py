@@ -105,7 +105,8 @@ def get_admin_merchants(
     category: Optional[str] = None,
     is_active: Optional[str] = None
 ) -> List[Merchant]:
-    query = db.query(Merchant).join(User, Merchant.owner_id == User.id)
+    from sqlalchemy.orm import joinedload
+    query = db.query(Merchant).options(joinedload(Merchant.owner)).join(User, Merchant.owner_id == User.id)
 
     if search:
         query = query.filter(
@@ -151,7 +152,11 @@ def get_admin_videos(
     offset: int = 0,
     status: Optional[str] = None
 ) -> List[Video]:
-    query = db.query(Video).join(User, Video.reviewer_id == User.id)
+    from sqlalchemy.orm import joinedload
+    query = db.query(Video).options(
+        joinedload(Video.reviewer),
+        joinedload(Video.tagged_merchant).joinedload(Merchant.owner)
+    ).join(User, Video.reviewer_id == User.id)
 
     if status and status != "all":
         query = query.filter(Video.status == status)
@@ -197,7 +202,10 @@ def get_admin_campaigns(
     is_active: Optional[str] = None,
     merchant_search: Optional[str] = None
 ) -> List[Campaign]:
-    query = db.query(Campaign).join(Merchant, Campaign.merchant_id == Merchant.id)
+    from sqlalchemy.orm import joinedload
+    query = db.query(Campaign).options(
+        joinedload(Campaign.merchant).joinedload(Merchant.owner)
+    ).join(Merchant, Campaign.merchant_id == Merchant.id)
 
     if is_active and is_active != "all":
         query = query.filter(Campaign.is_active == (is_active == "true"))

@@ -116,6 +116,7 @@ export default function MerchantDashboardOverviewPage() {
           const activeMerchant = userMerchants.find(m => String(m.id) === savedId) || userMerchants[0];
           setMerchant(activeMerchant);
           localStorage.setItem("selected_merchant_id", String(activeMerchant.id));
+          localStorage.setItem("selected_merchant_name", activeMerchant.name);
 
           await loadMerchantData(activeMerchant.id);
         }
@@ -140,6 +141,7 @@ export default function MerchantDashboardOverviewPage() {
     if (selected) {
       setMerchant(selected);
       localStorage.setItem("selected_merchant_id", merchantIdStr);
+      localStorage.setItem("selected_merchant_name", selected.name);
       setIsLoading(true);
       await loadMerchantData(selected.id);
       setIsLoading(false);

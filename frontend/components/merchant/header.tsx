@@ -6,7 +6,6 @@ import { MobileSidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
-import { getMerchantsByOwner } from "@/lib/services/merchant";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,28 +18,27 @@ export function Header() {
   const [restaurantName, setRestaurantName] = useState("Kênh đối tác");
 
   useEffect(() => {
-    const fetchActiveMerchantName = async () => {
-      if (!token) return;
+    const fetchActiveMerchantName = () => {
       try {
-        const userMerchants = await getMerchantsByOwner(token);
-        if (userMerchants.length > 0) {
-          const savedId = localStorage.getItem("selected_merchant_id");
-          const active = userMerchants.find(m => String(m.id) === savedId) || userMerchants[0];
-          setRestaurantName(active.name);
+        const savedName = localStorage.getItem("selected_merchant_name");
+        if (savedName) {
+          setRestaurantName(savedName);
+        } else {
+          setRestaurantName("Kênh đối tác");
         }
       } catch (err) {
-        console.error("Failed to load merchant name for header:", err);
+        console.error("Failed to load merchant name from localStorage:", err);
       }
     };
     fetchActiveMerchantName();
     
-    // Check local storage selection changes
-    const interval = setInterval(fetchActiveMerchantName, 1500);
+    // Check local storage selection changes on a short interval without hitting the API
+    const interval = setInterval(fetchActiveMerchantName, 1000);
 
     return () => {
       clearInterval(interval);
     };
-  }, [token]);
+  }, []);
 
   return (
     <div className="flex items-center justify-between w-full gap-4">
