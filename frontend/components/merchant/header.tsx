@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { MobileSidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
+import { useState, useEffect } from "react";
+import { getMerchantsByOwner } from "@/lib/services/merchant";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,10 +14,34 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const restaurantName = "Delicious Bites";
-
 export function Header() {
-  const { logout } = useAuth();
+  const { token, logout } = useAuth();
+  const [restaurantName, setRestaurantName] = useState("Kênh đối tác");
+
+  useEffect(() => {
+    const fetchActiveMerchantName = async () => {
+      if (!token) return;
+      try {
+        const userMerchants = await getMerchantsByOwner(token);
+        if (userMerchants.length > 0) {
+          const savedId = localStorage.getItem("selected_merchant_id");
+          const active = userMerchants.find(m => String(m.id) === savedId) || userMerchants[0];
+          setRestaurantName(active.name);
+        }
+      } catch (err) {
+        console.error("Failed to load merchant name for header:", err);
+      }
+    };
+    fetchActiveMerchantName();
+    
+    // Check local storage selection changes
+    const interval = setInterval(fetchActiveMerchantName, 1500);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [token]);
+
   return (
     <div className="flex items-center justify-between w-full gap-4">
       {/* Mobile: hamburger + name */}

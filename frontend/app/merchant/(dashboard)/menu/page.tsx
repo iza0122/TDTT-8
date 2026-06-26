@@ -43,43 +43,43 @@ interface Category {
 const mockDishes: Dish[] = [
   {
     id: "1",
-    name: "Classic Burger",
-    description: "A juicy beef patty with lettuce, tomato, and cheese.",
-    price: 12.99,
-    category: "Main Course",
-    imageUrl: "https://picsum.photos/seed/burger/80/80",
+    name: "Burger bò phô mai",
+    description: "Bánh burger bò nướng lò với phô mai Cheddar tan chảy, xà lách và cà chua.",
+    price: 125000,
+    category: "Món chính",
+    imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=150",
   },
   {
     id: "2",
-    name: "Caesar Salad",
-    description: "Fresh romaine lettuce with Caesar dressing, croutons, and parmesan.",
-    price: 9.50,
-    category: "Appetizer",
-    imageUrl: "https://picsum.photos/seed/salad/80/80",
+    name: "Salad Hoàng Đế",
+    description: "Rau xà lách tươi giòn kết hợp sốt Caesar đặc trưng, vụn bánh mì sấy và phô mai Parmesan.",
+    price: 95000,
+    category: "Khai vị",
+    imageUrl: "https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=150",
   },
   {
     id: "3",
-    name: "Orange Juice",
-    description: "Freshly squeezed orange juice.",
-    price: 4.00,
-    category: "Drinks",
-    imageUrl: "https://picsum.photos/seed/juice/80/80",
+    name: "Nước cam vắt",
+    description: "Nước cam vắt nguyên chất tươi ngon mỗi ngày.",
+    price: 45000,
+    category: "Đồ uống",
+    imageUrl: "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=150",
   },
   {
     id: "4",
-    name: "Chocolate Lava Cake",
-    description: "Warm chocolate cake with a molten center, served with vanilla ice cream.",
-    price: 8.50,
-    category: "Desserts",
-    imageUrl: "https://picsum.photos/seed/cake/80/80",
+    name: "Bánh kem sô-cô-la",
+    description: "Bánh kem sô-cô-la đậm đà ngọt ngào, dùng kèm kem vani viên.",
+    price: 85000,
+    category: "Tráng miệng",
+    imageUrl: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=150",
   },
 ];
 
 const mockCategories: Category[] = [
-  { id: "1", name: "Appetizer" },
-  { id: "2", name: "Main Course" },
-  { id: "3", name: "Drinks" },
-  { id: "4", name: "Desserts" },
+  { id: "1", name: "Khai vị" },
+  { id: "2", name: "Món chính" },
+  { id: "3", name: "Đồ uống" },
+  { id: "4", name: "Tráng miệng" },
 ];
 
 export default function MenuManagementPage() {
@@ -87,6 +87,7 @@ export default function MenuManagementPage() {
   const { toast } = useToast();
 
   const [merchant, setMerchant] = useState<MerchantResponse | null>(null);
+  const [merchants, setMerchants] = useState<MerchantResponse[]>([]);
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [categories, setCategories] = useState<Category[]>(mockCategories);
   const [selectedDishCategory, setSelectedDishCategory] = useState<string>("");
@@ -123,7 +124,7 @@ export default function MenuManagementPage() {
     if (isDishDialogOpen) {
       setSelectedImageFile(null);
       setSelectedImagePreview(editingDish?.imageUrl || null);
-      setSelectedDishCategory(editingDish?.category || (categories[0]?.name || "Món ăn"));
+      setSelectedDishCategory(editingDish?.category || (categories[0]?.name || "Món chính"));
     } else {
       setSelectedImageFile(null);
       if (selectedImagePreview && selectedImageFile) {
@@ -142,16 +143,20 @@ export default function MenuManagementPage() {
       try {
         setIsLoading(true);
         const userMerchants = await getMerchantsByOwner(token);
+        setMerchants(userMerchants);
         if (userMerchants.length > 0) {
-          const activeMerchant = userMerchants[0];
+          const savedId = localStorage.getItem("selected_merchant_id");
+          const activeMerchant = userMerchants.find(m => String(m.id) === savedId) || userMerchants[0];
           setMerchant(activeMerchant);
+          localStorage.setItem("selected_merchant_id", String(activeMerchant.id));
+
           const details = await getMerchant(activeMerchant.id);
           const mappedDishes = (details.menus || []).map((m: any) => ({
             id: String(m.id),
             name: m.dish_name,
             price: m.price,
             description: m.description || "",
-            category: m.category || "Món ăn",
+            category: m.category || "Món chính",
             imageUrl: m.image_url || "",
             is_available: m.is_available ?? true
           }));
@@ -170,6 +175,38 @@ export default function MenuManagementPage() {
     };
     fetchMerchantAndMenu();
   }, [token, user]);
+
+  const handleMerchantChange = async (merchantIdStr: string) => {
+    if (!token) return;
+    const selected = merchants.find(m => String(m.id) === merchantIdStr);
+    if (selected) {
+      setMerchant(selected);
+      localStorage.setItem("selected_merchant_id", merchantIdStr);
+      setIsLoading(true);
+      try {
+        const details = await getMerchant(selected.id);
+        const mappedDishes = (details.menus || []).map((m: any) => ({
+          id: String(m.id),
+          name: m.dish_name,
+          price: m.price,
+          description: m.description || "",
+          category: m.category || "Món chính",
+          imageUrl: m.image_url || "",
+          is_available: m.is_available ?? true
+        }));
+        setDishes(mappedDishes);
+      } catch (error: any) {
+        console.error("Failed to change merchant menu:", error);
+        toast({
+          title: "Lỗi 🙁",
+          description: error.message || "Không thể tải thực đơn cho quán ăn này.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
   const filtered = dishes.filter((d) => {
     const matchSearch = d.name.toLowerCase().includes(search.toLowerCase());
@@ -383,7 +420,7 @@ export default function MenuManagementPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Menu Management"
+        title="Quản lý thực đơn"
         description="Quản lý món ăn và danh mục thực đơn"
         action={
           <Dialog open={isDishDialogOpen} onOpenChange={setIsDishDialogOpen}>
@@ -498,6 +535,37 @@ export default function MenuManagementPage() {
           </Dialog>
         }
       />
+
+      {merchants.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-border bg-card shadow-xs">
+          <div className="flex items-center gap-2">
+            <Utensils className="w-5 h-5 text-primary animate-pulse" />
+            <div>
+              <span className="font-semibold text-sm block">Đang quản lý thực đơn của nhà hàng:</span>
+              <span className="text-xs text-muted-foreground font-medium">{merchant.name} ({merchant.category || "Chưa phân loại"})</span>
+            </div>
+          </div>
+          {merchants.length > 1 && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="merchant-select" className="text-xs text-muted-foreground font-medium shrink-0">
+                Chuyển nhà hàng:
+              </label>
+              <Select value={String(merchant.id)} onValueChange={handleMerchantChange}>
+                <SelectTrigger id="merchant-select" className="w-56 h-9 bg-background">
+                  <SelectValue placeholder="Chọn nhà hàng" />
+                </SelectTrigger>
+                <SelectContent>
+                  {merchants.map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Dishes Card */}
       <Card className="gap-0 py-0">

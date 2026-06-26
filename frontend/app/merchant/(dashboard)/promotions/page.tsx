@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/merchant/page-header";
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Megaphone, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Megaphone, Loader2, Utensils } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -64,6 +65,7 @@ export default function PromotionsManagementPage() {
   const { toast } = useToast();
 
   const [merchant, setMerchant] = useState<MerchantResponse | null>(null);
+  const [merchants, setMerchants] = useState<MerchantResponse[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -79,9 +81,13 @@ export default function PromotionsManagementPage() {
       try {
         setIsLoading(true);
         const userMerchants = await getMerchantsByOwner(token);
+        setMerchants(userMerchants);
         if (userMerchants.length > 0) {
-          const activeMerchant = userMerchants[0];
+          const savedId = localStorage.getItem("selected_merchant_id");
+          const activeMerchant = userMerchants.find(m => String(m.id) === savedId) || userMerchants[0];
           setMerchant(activeMerchant);
+          localStorage.setItem("selected_merchant_id", String(activeMerchant.id));
+
           const campaignsList = await getCampaigns(activeMerchant.id, token);
           setPromotions(campaignsList.map(mapCampaignToPromotion));
         }
@@ -99,6 +105,29 @@ export default function PromotionsManagementPage() {
 
     fetchPromotions();
   }, [token, user]);
+
+  const handleMerchantChange = async (merchantIdStr: string) => {
+    if (!token) return;
+    const selected = merchants.find(m => String(m.id) === merchantIdStr);
+    if (selected) {
+      setMerchant(selected);
+      localStorage.setItem("selected_merchant_id", merchantIdStr);
+      setIsLoading(true);
+      try {
+        const campaignsList = await getCampaigns(selected.id, token);
+        setPromotions(campaignsList.map(mapCampaignToPromotion));
+      } catch (error: any) {
+        console.error("Failed to change merchant promotions:", error);
+        toast({
+          title: "Lỗi 🙁",
+          description: error.message || "Không thể tải khuyến mãi cho quán ăn này.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingPromo(null);
@@ -215,7 +244,7 @@ export default function PromotionsManagementPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Promotions"
+        title="Chương trình khuyến mãi"
         description="Quản lý các chương trình khuyến mãi và ưu đãi"
         action={
           <Button onClick={handleOpenAdd} className="gap-2">
@@ -224,6 +253,37 @@ export default function PromotionsManagementPage() {
           </Button>
         }
       />
+
+      {merchants.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-border bg-card shadow-xs">
+          <div className="flex items-center gap-2">
+            <Utensils className="w-5 h-5 text-primary animate-pulse" />
+            <div>
+              <span className="font-semibold text-sm block">Đang quản lý khuyến mãi của nhà hàng:</span>
+              <span className="text-xs text-muted-foreground font-medium">{merchant.name} ({merchant.category || "Chưa phân loại"})</span>
+            </div>
+          </div>
+          {merchants.length > 1 && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="merchant-select" className="text-xs text-muted-foreground font-medium shrink-0">
+                Chuyển nhà hàng:
+              </label>
+              <Select value={String(merchant.id)} onValueChange={handleMerchantChange}>
+                <SelectTrigger id="merchant-select" className="w-56 h-9 bg-background">
+                  <SelectValue placeholder="Chọn nhà hàng" />
+                </SelectTrigger>
+                <SelectContent>
+                  {merchants.map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      )}
 
       <Card className="gap-0 py-0">
         <CardContent className="px-0 py-0">

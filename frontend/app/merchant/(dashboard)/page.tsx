@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatCard } from "@/components/merchant/stat-card";
 import { PageHeader } from "@/components/merchant/page-header";
 import Link from "next/link";
@@ -36,10 +37,69 @@ export default function MerchantDashboardOverviewPage() {
   const { toast } = useToast();
 
   const [merchant, setMerchant] = useState<MerchantResponse | null>(null);
+  const [merchants, setMerchants] = useState<MerchantResponse[]>([]);
   const [stats, setStats] = useState<MerchantStats | null>(null);
   const [dishes, setDishes] = useState<{ name: string; price: number; isAvailable: boolean }[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const loadMerchantData = async (merchantId: number) => {
+    try {
+      const [statsData, detailsData] = await Promise.all([
+        getMerchantStats(merchantId, token!),
+        getMerchant(merchantId)
+      ]);
+
+      setStats(statsData);
+
+      const mappedDishes = (detailsData.menus || []).map((m: any) => ({
+        name: m.dish_name,
+        price: m.price,
+        isAvailable: m.is_available ?? true
+      }));
+      setDishes(mappedDishes);
+
+      const generatedNotifs = [];
+      const realReviews = detailsData.reviews || [];
+      if (realReviews.length > 0) {
+        realReviews.slice(0, 4).forEach((rev: any, idx: number) => {
+          generatedNotifs.push({
+            id: `notif-rev-${rev.id}`,
+            type: "review",
+            message: `${rev.customerName || "Khách hàng"} để lại đánh giá ${rev.rating} sao về nhà hàng: "${rev.comment}"`,
+            time: rev.date ? new Date(rev.date).toLocaleDateString("vi-VN") : "Vừa xong",
+            unread: idx === 0
+          });
+        });
+      }
+      if (statsData.active_promos > 0) {
+        generatedNotifs.push({
+          id: "notif-promo",
+          type: "promo",
+          message: `Chiến dịch quảng cáo của bạn đang hoạt động và thu hút lượt tiếp cận`,
+          time: "1 ngày trước",
+          unread: false
+        });
+      }
+      if (generatedNotifs.length === 0) {
+        generatedNotifs.push({
+          id: "notif-empty",
+          type: "general",
+          message: "Chào mừng bạn đến với FoodieGram! Hãy bắt đầu bằng cách thêm món mới.",
+          time: "Vừa xong",
+          unread: true
+        });
+      }
+      setNotifications(generatedNotifs);
+    } catch (error: any) {
+      console.error("Failed to load details for merchant:", error);
+      toast({
+        title: "Lỗi 🙁",
+        description: "Không thể tải chi tiết dữ liệu thống kê cho nhà hàng.",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -50,56 +110,14 @@ export default function MerchantDashboardOverviewPage() {
       try {
         setIsLoading(true);
         const userMerchants = await getMerchantsByOwner(token);
+        setMerchants(userMerchants);
         if (userMerchants.length > 0) {
-          const activeMerchant = userMerchants[0];
+          const savedId = localStorage.getItem("selected_merchant_id");
+          const activeMerchant = userMerchants.find(m => String(m.id) === savedId) || userMerchants[0];
           setMerchant(activeMerchant);
+          localStorage.setItem("selected_merchant_id", String(activeMerchant.id));
 
-          const [statsData, detailsData] = await Promise.all([
-            getMerchantStats(activeMerchant.id, token),
-            getMerchant(activeMerchant.id)
-          ]);
-
-          setStats(statsData);
-
-          const mappedDishes = (detailsData.menus || []).map((m: any) => ({
-            name: m.dish_name,
-            price: m.price,
-            isAvailable: m.is_available ?? true
-          }));
-          setDishes(mappedDishes);
-
-          const generatedNotifs = [];
-          const realReviews = detailsData.reviews || [];
-          if (realReviews.length > 0) {
-            realReviews.slice(0, 4).forEach((rev: any, idx: number) => {
-              generatedNotifs.push({
-                id: `notif-rev-${rev.id}`,
-                type: "review",
-                message: `${rev.customerName || "Khách hàng"} để lại đánh giá ${rev.rating} sao về nhà hàng: "${rev.comment}"`,
-                time: rev.date ? new Date(rev.date).toLocaleDateString("vi-VN") : "Vừa xong",
-                unread: idx === 0
-              });
-            });
-          }
-          if (statsData.active_promos > 0) {
-            generatedNotifs.push({
-              id: "notif-promo",
-              type: "promo",
-              message: `Chiến dịch quảng cáo của bạn đang hoạt động và thu hút lượt tiếp cận`,
-              time: "1 ngày trước",
-              unread: false
-            });
-          }
-          if (generatedNotifs.length === 0) {
-            generatedNotifs.push({
-              id: "notif-empty",
-              type: "general",
-              message: "Chào mừng bạn đến với FoodieGram! Hãy bắt đầu bằng cách thêm món mới.",
-              time: "Vừa xong",
-              unread: true
-            });
-          }
-          setNotifications(generatedNotifs);
+          await loadMerchantData(activeMerchant.id);
         }
       } catch (error: any) {
         console.error("Failed to load dashboard data:", error);
@@ -115,6 +133,18 @@ export default function MerchantDashboardOverviewPage() {
 
     fetchDashboardData();
   }, [token, user]);
+
+  const handleMerchantChange = async (merchantIdStr: string) => {
+    if (!token) return;
+    const selected = merchants.find(m => String(m.id) === merchantIdStr);
+    if (selected) {
+      setMerchant(selected);
+      localStorage.setItem("selected_merchant_id", merchantIdStr);
+      setIsLoading(true);
+      await loadMerchantData(selected.id);
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -147,11 +177,40 @@ export default function MerchantDashboardOverviewPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Dashboard"
-        description="Tổng quan hoạt động nhà hàng của bạn"
+        title="Tổng quan hoạt động"
+        description="Xem báo cáo thống kê và quản lý nhà hàng của bạn"
       />
 
-      <MerchantList />
+      {merchants.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-border bg-card shadow-xs">
+          <div className="flex items-center gap-2">
+            <Utensils className="w-5 h-5 text-primary animate-pulse" />
+            <div>
+              <span className="font-semibold text-sm block">Đang xem báo cáo của nhà hàng:</span>
+              <span className="text-xs text-muted-foreground font-medium">{merchant.name} ({merchant.category || "Chưa phân loại"})</span>
+            </div>
+          </div>
+          {merchants.length > 1 && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="merchant-select" className="text-xs text-muted-foreground font-medium shrink-0">
+                Chuyển nhà hàng:
+              </label>
+              <Select value={String(merchant.id)} onValueChange={handleMerchantChange}>
+                <SelectTrigger id="merchant-select" className="w-56 h-9 bg-background">
+                  <SelectValue placeholder="Chọn nhà hàng" />
+                </SelectTrigger>
+                <SelectContent>
+                  {merchants.map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Row 1 — Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
