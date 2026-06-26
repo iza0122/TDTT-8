@@ -122,6 +122,7 @@ backend/config/*
 # AI / Agent specific
 # =========================
 .agents/
+agent-skills/
 skills-lock.json
 
 # CHẶN ROO CODE QUÉT CÁC FILE LOG CHAT VÀ CONFIG NỘI BỘ (QUAN TRỌNG)
