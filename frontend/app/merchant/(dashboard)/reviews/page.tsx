@@ -84,22 +84,24 @@ export default function ReviewsManagementPage() {
       return;
     }
 
-    setIsDeletingId(reviewId);
+    const originalReviews = [...reviews];
+    // Optimistically remove from state
+    setReviews(reviews.filter((r) => Number(r.id) !== reviewId));
+
     try {
       await deleteReview(reviewId, token);
-      setReviews(reviews.filter((r) => Number(r.id) !== reviewId));
       toast({
         title: "Thành công 🎉",
         description: "Đã xóa đánh giá thành công."
       });
     } catch (err: any) {
+      // Rollback on failure
+      setReviews(originalReviews);
       toast({
         title: "Lỗi 🙁",
         description: err.message || "Không thể xóa đánh giá.",
         variant: "destructive"
       });
-    } finally {
-      setIsDeletingId(null);
     }
   };
 

@@ -202,14 +202,18 @@ export default function PromotionsManagementPage() {
 
   const handleDelete = async (id: string) => {
     if (!token || !merchant) return;
+    const originalPromotions = [...promotions];
+    // Optimistically remove from state
+    setPromotions(promotions.filter((p) => p.id !== id));
     try {
       await deleteCampaign(merchant.id, Number(id), token);
-      setPromotions(promotions.filter((p) => p.id !== id));
       toast({
         title: "Thành công 🎉",
         description: "Đã xóa chiến dịch khuyến mãi."
       });
     } catch (err: any) {
+      // Rollback to original list on failure
+      setPromotions(originalPromotions);
       toast({
         title: "Lỗi 🙁",
         description: err.message || "Không thể xóa chiến dịch.",

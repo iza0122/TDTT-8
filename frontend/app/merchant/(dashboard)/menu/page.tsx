@@ -362,15 +362,19 @@ export default function MenuManagementPage() {
 
   const handleDeleteDish = async (id: string) => {
     if (!token || !merchant) return;
+    const originalDishes = [...dishes];
+    // Optimistically remove from state
+    setDishes((prev) => prev.filter((d) => d.id !== id));
     try {
       await deleteMenuItem(merchant.id, Number(id), token);
-      setDishes((prev) => prev.filter((d) => d.id !== id));
       toast({
         title: "Thành công 🎉",
         description: "Đã xóa món ăn khỏi thực đơn.",
       });
     } catch (error: any) {
       console.error("Failed to delete menu item:", error);
+      // Rollback to original list on failure
+      setDishes(originalDishes);
       toast({
         title: "Lỗi 🙁",
         description: error.message || "Không thể xóa món ăn.",

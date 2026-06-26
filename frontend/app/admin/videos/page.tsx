@@ -120,38 +120,55 @@ export default function AdminVideosPage() {
 
   async function handleApprove(video: AdminVideo) {
     if (!token) return;
-    setActionLoading(true);
+    const originalVideos = [...videos];
+    const originalTotal = total;
+    const originalPendingCount = pendingCount;
+
+    // Optimistically update list, counts, and close preview modal
+    setVideos((prev) => prev.filter((v) => v.id !== video.id));
+    setTotal((t) => Math.max(0, t - 1));
+    if (activeTab === "pending") setPendingCount((c) => Math.max(0, c - 1));
+    setPreviewVideo(null);
+
     try {
-      const updated = await patchVideoStatus(token, video.id, "approved");
-      setVideos((prev) => prev.filter((v) => v.id !== updated.id));
-      setTotal((t) => t - 1);
-      if (activeTab === "pending") setPendingCount((c) => Math.max(0, c - 1));
+      await patchVideoStatus(token, video.id, "approved");
       toast({ title: "Đã duyệt bài đăng", description: video.title ?? `Video #${video.id}` });
-      setPreviewVideo(null);
     } catch (err: any) {
+      // Revert on failure
+      setVideos(originalVideos);
+      setTotal(originalTotal);
+      setPendingCount(originalPendingCount);
       toast({ title: "Lỗi", description: err.message, variant: "destructive" });
-    } finally {
-      setActionLoading(false);
     }
   }
 
   async function handleRejectConfirm() {
     const video = rejectDialogVideo ?? previewVideo;
     if (!token || !video) return;
-    setActionLoading(true);
+    
+    const originalVideos = [...videos];
+    const originalTotal = total;
+    const originalPendingCount = pendingCount;
+    const reasonTemp = rejectReason;
+
+    // Optimistically update list, counts, and close modals/dialogs
+    setVideos((prev) => prev.filter((v) => v.id !== video.id));
+    setTotal((t) => Math.max(0, t - 1));
+    if (activeTab === "pending") setPendingCount((c) => Math.max(0, c - 1));
+    setRejectDialogVideo(null);
+    setPreviewVideo(null);
+    setRejectReason("");
+
     try {
-      const updated = await patchVideoStatus(token, video.id, "rejected", rejectReason || undefined);
-      setVideos((prev) => prev.filter((v) => v.id !== updated.id));
-      setTotal((t) => t - 1);
-      if (activeTab === "pending") setPendingCount((c) => Math.max(0, c - 1));
+      await patchVideoStatus(token, video.id, "rejected", reasonTemp || undefined);
       toast({ title: "Đã từ chối bài đăng", description: video.title ?? `Video #${video.id}` });
-      setRejectDialogVideo(null);
-      setPreviewVideo(null);
-      setRejectReason("");
     } catch (err: any) {
+      // Revert on failure
+      setVideos(originalVideos);
+      setTotal(originalTotal);
+      setPendingCount(originalPendingCount);
+      setRejectReason(reasonTemp);
       toast({ title: "Lỗi", description: err.message, variant: "destructive" });
-    } finally {
-      setActionLoading(false);
     }
   }
 
