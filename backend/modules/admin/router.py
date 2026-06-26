@@ -135,3 +135,36 @@ def patch_campaign_active_endpoint(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return campaign
+
+
+# Admin Reports Management
+@router.get("/reports", response_model=schemas.PaginatedReportsResponse, summary="Lấy danh sách báo cáo vi phạm")
+def get_admin_reports_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin"])),
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    status: Optional[str] = Query(None, description="Filter by report status"),
+    reported_entity_type: Optional[str] = Query(None, description="Filter by entity type"),
+):
+    reports = services.get_admin_reports(db, limit, offset, status, reported_entity_type)
+    total = services.get_admin_reports_count(db, status, reported_entity_type)
+    return {"items": reports, "total": total}
+
+
+@router.patch("/reports/{report_id}/action", response_model=schemas.AdminReportResponse, summary="Xử lý báo cáo vi phạm")
+def patch_report_action_endpoint(
+    report_id: str,
+    action_data: schemas.ReportActionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(RoleChecker(["admin"]))
+):
+    report = services.patch_report_action(
+        db=db,
+        report_id=report_id,
+        status_val=action_data.status,
+        action_taken=action_data.action_taken
+    )
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return report

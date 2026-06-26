@@ -422,3 +422,27 @@ def get_followed_users(db: Session, current_user_id: int) -> List[dict]:
         
     return results
 
+
+def create_video_report(db: Session, video_id: int, user_id: int, reason: str):
+    import uuid
+    from backend.core.all_models import Report
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bài viết/Video không tồn tại."
+        )
+
+    report = Report(
+        id=str(uuid.uuid4()),
+        reporter_id=user_id,
+        reported_entity_type="video",
+        reported_entity_id=str(video_id),
+        reason=reason,
+        status="pending"
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+    return report
+

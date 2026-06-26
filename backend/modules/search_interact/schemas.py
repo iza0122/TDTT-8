@@ -79,3 +79,20 @@ class FollowedUserResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class VideoReportCreate(BaseModel):
+    reason: str
+
+
+class ReportResponse(BaseModel):
+    id: str
+    reporter_id: int
+    reported_entity_type: str
+    reported_entity_id: str
+    reason: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+

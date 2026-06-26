@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2, EyeOff, Copy } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, MapPin, Star, MoreHorizontal, Trash2, EyeOff, Copy, Flag } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { CaptionText } from "@/components/caption-text";
 import { LoginRequiredDialog } from "@/components/login-required-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface FoodPostProps {
   post: {
@@ -62,6 +65,10 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
   const [isFollowing, setIsFollowing] = useState(post.user.is_following || false);
   const [shares, setShares] = useState(post.shares || 0);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [customReportReason, setCustomReportReason] = useState("");
+  const [isReporting, setIsReporting] = useState(false);
 
   useEffect(() => {
     setIsSaved(post.isSaved);
@@ -204,6 +211,47 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
         console.error("Lỗi khi theo dõi:", err);
       }
     });
+  };
+
+  const handleReportPost = async (reasonText: string) => {
+    if (!token) return;
+    setIsReporting(true);
+    try {
+      const response = await fetch(`/api/interact/videos/${post.id}/report`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ reason: reasonText })
+      });
+      if (response.ok) {
+        toast({
+          title: "Đã gửi báo cáo! 🛡️",
+          description: "Cảm ơn bạn đã báo cáo. Đội ngũ kiểm duyệt sẽ xử lý sớm nhất có thể.",
+          variant: "success"
+        });
+        setShowReportDialog(false);
+        setReportReason("");
+        setCustomReportReason("");
+      } else {
+        const err = await response.json();
+        toast({
+          title: "Thao tác thất bại",
+          description: err.detail || "Không thể gửi báo cáo.",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error("Lỗi khi báo cáo bài viết:", err);
+      toast({
+        title: "Lỗi kết nối",
+        description: "Vui lòng thử lại sau.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsReporting(false);
+    }
   };
 
   const handleDeletePost = async () => {
@@ -374,6 +422,18 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
                       <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
                       <span>Ẩn bài viết</span>
                     </button>
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        handleAuthenticatedAction(() => {
+                          setShowReportDialog(true);
+                        });
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition-colors flex items-center gap-2 cursor-pointer border-t border-border/10 pt-1"
+                    >
+                      <Flag className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>Báo cáo vi phạm</span>
+                    </button>
                     {canDelete && (
                       <button
                         onClick={() => {
@@ -503,5 +563,78 @@ export function FoodPost({ post, priority = false, onPostClick, onCommentClick, 
       </article>
     </div>
     <LoginRequiredDialog isOpen={showLoginDialog} onClose={() => setShowLoginDialog(false)} />
+    
+    <Dialog open={showReportDialog} onOpenChange={(open) => !open && setShowReportDialog(false)}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Flag className="w-5 h-5 text-red-500 fill-red-500/10" />
+            Báo cáo bài viết
+          </DialogTitle>
+          <DialogDescription>
+            Báo cáo này giúp chúng tôi giữ môi trường cộng đồng văn minh. Hãy chọn lý do báo cáo bài viết của @{post.user.username}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          {[
+            "Nội dung phản cảm, không lành mạnh",
+            "Spam hoặc quảng cáo quá đà",
+            "Bản quyền hoặc nội dung giả mạo",
+            "Ngôn từ gây thù ghét, quấy rối",
+            "Lý do khác (Nhập chi tiết phía dưới)"
+          ].map((reason) => (
+            <button
+              key={reason}
+              onClick={() => setReportReason(reason)}
+              className={cn(
+                "w-full text-left px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer flex items-center justify-between",
+                reportReason === reason
+                  ? "bg-red-500/10 border-red-500/40 text-red-600"
+                  : "bg-secondary/40 border-border/40 hover:bg-secondary/70 text-foreground"
+              )}
+            >
+              <span>{reason}</span>
+              {reportReason === reason && <div className="w-1.5 h-1.5 rounded-full bg-red-500" />}
+            </button>
+          ))}
+
+          {reportReason === "Lý do khác (Nhập chi tiết phía dưới)" && (
+            <div className="space-y-1.5 pt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+              <Label htmlFor="custom-reason" className="text-xs font-bold text-muted-foreground">Chi tiết lý do vi phạm</Label>
+              <Textarea
+                id="custom-reason"
+                placeholder="Vui lòng mô tả chi tiết vi phạm..."
+                value={customReportReason}
+                onChange={(e) => setCustomReportReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          )}
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowReportDialog(false)}>
+            Hủy
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={
+              isReporting ||
+              !reportReason ||
+              (reportReason === "Lý do khác (Nhập chi tiết phía dưới)" && !customReportReason.trim())
+            }
+            onClick={() => {
+              const finalReason =
+                reportReason === "Lý do khác (Nhập chi tiết phía dưới)"
+                  ? `Khác: ${customReportReason.trim()}`
+                  : reportReason;
+              handleReportPost(finalReason);
+            }}
+          >
+            {isReporting ? "Đang gửi..." : "Gửi báo cáo"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </>);
 }

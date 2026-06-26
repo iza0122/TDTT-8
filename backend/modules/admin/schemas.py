@@ -120,3 +120,33 @@ class MerchantActiveUpdate(BaseModel):
 
 class CampaignActiveUpdate(BaseModel):
     is_active: bool
+
+
+class AdminReportResponse(BaseModel):
+    id: str
+    reporter_id: int
+    reported_entity_type: str
+    reported_entity_id: str
+    reason: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    reporter: Optional[AdminUserResponse] = None
+    reported_video: Optional[AdminVideoResponse] = None
+
+    class Config:
+        orm_mode = True
+        arbitrary_types_allowed = True
+
+
+class PaginatedReportsResponse(BaseModel):
+    items: List[AdminReportResponse]
+    total: int
+
+    class Config:
+        orm_mode = True
+
+
+class ReportActionUpdate(BaseModel):
+    status: str  # "resolved" or "dismissed"
+    action_taken: Optional[str] = None  # "delete" or "keep"

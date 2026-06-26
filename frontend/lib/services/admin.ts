@@ -208,3 +208,56 @@ export async function patchCampaignActive(token: string, campaignId: number, is_
   });
   return handleResponse<AdminCampaign>(res);
 }
+
+export interface AdminReport {
+  id: string;
+  reporter_id: number;
+  reported_entity_type: string;
+  reported_entity_id: string;
+  reason: string;
+  status: "pending" | "resolved" | "dismissed";
+  created_at: string;
+  updated_at: string;
+  reporter?: AdminUser | null;
+  reported_video?: AdminVideo | null;
+}
+
+export interface PaginatedReports {
+  items: AdminReport[];
+  total: number;
+}
+
+export async function deleteAdminVideo(token: string, videoId: number): Promise<{ status: string; message: string }> {
+  const res = await fetch(`${API_BASE}/content/videos/${videoId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  return handleResponse<{ status: string; message: string }>(res);
+}
+
+export async function getAdminReports(
+  token: string,
+  params: { limit?: number; offset?: number; status?: string; reported_entity_type?: string }
+): Promise<PaginatedReports> {
+  const p = new URLSearchParams();
+  if (params.limit !== undefined) p.set("limit", String(params.limit));
+  if (params.offset !== undefined) p.set("offset", String(params.offset));
+  if (params.status && params.status !== "all") p.set("status", params.status);
+  if (params.reported_entity_type && params.reported_entity_type !== "all") p.set("reported_entity_type", params.reported_entity_type);
+  
+  const res = await fetch(`${API_BASE}/admin/reports?${p}`, { headers: authHeaders(token) });
+  return handleResponse<PaginatedReports>(res);
+}
+
+export async function patchReportAction(
+  token: string,
+  reportId: string,
+  payload: { status: "resolved" | "dismissed"; action_taken?: "delete" | "keep" }
+): Promise<AdminReport> {
+  const res = await fetch(`${API_BASE}/admin/reports/${reportId}/action`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<AdminReport>(res);
+}

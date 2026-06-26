@@ -241,3 +241,140 @@ def patch_campaign_active(db: Session, campaign_id: int, is_active: bool) -> Opt
         db.commit()
         db.refresh(campaign)
     return campaign
+
+
+def get_admin_reports(
+    db: Session,
+    limit: int = 10,
+    offset: int = 0,
+    status: Optional[str] = None,
+    reported_entity_type: Optional[str] = None
+) -> List[dict]:
+    from sqlalchemy.orm import joinedload
+    from backend.core.all_models import Report, User, Video, Merchant
+    
+    query = db.query(Report).options(joinedload(Report.reporter))
+    
+    if status and status != "all":
+        query = query.filter(Report.status == status)
+        
+    if reported_entity_type and reported_entity_type != "all":
+        query = query.filter(Report.reported_entity_type == reported_entity_type)
+        
+    reports = query.order_by(Report.created_at.desc()).offset(offset).limit(limit).all()
+    
+    # Batch-load reported videos to avoid N+1 query pattern
+    video_ids = []
+    for r in reports:
+        if r.reported_entity_type == "video":
+            try:
+                video_ids.append(int(r.reported_entity_id))
+            except ValueError:
+                pass
+                
+    videos_map = {}
+    if video_ids:
+        # Load videos with reviewer and tagged merchant
+        videos = db.query(Video).options(
+            joinedload(Video.reviewer),
+            joinedload(Video.tagged_merchant).joinedload(Merchant.owner)
+        ).filter(Video.id.in_(video_ids)).all()
+        for v in videos:
+            videos_map[str(v.id)] = v
+            
+    # Build response list matching the schema
+    results = []
+    for r in reports:
+        reported_video = None
+        if r.reported_entity_type == "video":
+            reported_video = videos_map.get(r.reported_entity_id)
+            
+        results.append({
+            "id": r.id,
+            "reporter_id": r.reporter_id,
+            "reported_entity_type": r.reported_entity_type,
+            "reported_entity_id": r.reported_entity_id,
+            "reason": r.reason,
+            "status": r.status,
+            "created_at": r.created_at,
+            "updated_at": r.updated_at,
+            "reporter": r.reporter,
+            "reported_video": reported_video
+        })
+        
+    return results
+
+
+def get_admin_reports_count(
+    db: Session,
+    status: Optional[str] = None,
+    reported_entity_type: Optional[str] = None
+) -> int:
+    from backend.core.all_models import Report
+    query = db.query(Report)
+    
+    if status and status != "all":
+        query = query.filter(Report.status == status)
+        
+    if reported_entity_type and reported_entity_type != "all":
+        query = query.filter(Report.reported_entity_type == reported_entity_type)
+        
+    return query.count()
+
+
+def patch_report_action(
+    db: Session,
+    report_id: str,
+    status_val: str,
+    action_taken: Optional[str] = None
+) -> Optional[dict]:
+    from backend.core.all_models import Report, Video
+    from backend.modules.content.services import delete_video_record_internal
+    from sqlalchemy.orm import joinedload
+    from datetime import datetime
+    
+    report = db.query(Report).options(joinedload(Report.reporter)).filter(Report.id == report_id).first()
+    if not report:
+        return None
+        
+    # Execute action
+    reported_video = None
+    if action_taken == "delete" and report.reported_entity_type == "video":
+        # Find video to delete
+        try:
+            video_id = int(report.reported_entity_id)
+            video = db.query(Video).options(joinedload(Video.tagged_merchant)).filter(Video.id == video_id).first()
+            if video:
+                delete_video_record_internal(db, video)
+        except ValueError:
+            pass
+            
+    report.status = status_val
+    report.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(report)
+    
+    # Reload video state if it wasn't deleted
+    if report.reported_entity_type == "video":
+        from backend.core.all_models import Merchant
+        try:
+            video_id = int(report.reported_entity_id)
+            reported_video = db.query(Video).options(
+                joinedload(Video.reviewer),
+                joinedload(Video.tagged_merchant).joinedload(Merchant.owner)
+            ).filter(Video.id == video_id).first()
+        except ValueError:
+            pass
+        
+    return {
+        "id": report.id,
+        "reporter_id": report.reporter_id,
+        "reported_entity_type": report.reported_entity_type,
+        "reported_entity_id": report.reported_entity_id,
+        "reason": report.reason,
+        "status": report.status,
+        "created_at": report.created_at,
+        "updated_at": report.updated_at,
+        "reporter": report.reporter,
+        "reported_video": reported_video
+    }

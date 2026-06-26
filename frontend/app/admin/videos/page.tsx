@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { getAdminVideos, patchVideoStatus, AdminVideo } from "@/lib/services/admin";
+import { getAdminVideos, patchVideoStatus, deleteAdminVideo, AdminVideo } from "@/lib/services/admin";
 import { PageHeader } from "@/components/merchant/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ import {
   ChevronRight,
   AlertCircle,
   Play,
+  Trash2,
 } from "lucide-react";
 
 const LIMIT = 12;
@@ -168,6 +169,32 @@ export default function AdminVideosPage() {
       setTotal(originalTotal);
       setPendingCount(originalPendingCount);
       setRejectReason(reasonTemp);
+      toast({ title: "Lỗi", description: err.message, variant: "destructive" });
+    }
+  }
+
+  async function handleDeleteVideo(video: AdminVideo) {
+    if (!token) return;
+    if (!confirm(`Bạn có chắc chắn muốn xóa bài viết "${video.title || 'không tiêu đề'}" và toàn bộ dữ liệu liên quan?`)) return;
+
+    const originalVideos = [...videos];
+    const originalTotal = total;
+    const originalPendingCount = pendingCount;
+
+    // Optimistically update state
+    setVideos((prev) => prev.filter((v) => v.id !== video.id));
+    setTotal((t) => Math.max(0, t - 1));
+    if (video.status === "pending") setPendingCount((c) => Math.max(0, c - 1));
+    setPreviewVideo(null);
+
+    try {
+      await deleteAdminVideo(token, video.id);
+      toast({ title: "Đã xóa bài viết thành công", description: video.title ?? `Video #${video.id}` });
+    } catch (err: any) {
+      // Rollback on failure
+      setVideos(originalVideos);
+      setTotal(originalTotal);
+      setPendingCount(originalPendingCount);
       toast({ title: "Lỗi", description: err.message, variant: "destructive" });
     }
   }
@@ -321,7 +348,7 @@ export default function AdminVideosPage() {
                     <Eye className="w-3 h-3" />
                     Xem
                   </Button>
-                  {video.status === "pending" && (
+                  {video.status === "pending" ? (
                     <>
                       <Button
                         size="sm"
@@ -343,6 +370,17 @@ export default function AdminVideosPage() {
                         Từ chối
                       </Button>
                     </>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="flex-1 h-8 text-xs gap-1"
+                      onClick={() => handleDeleteVideo(video)}
+                      disabled={actionLoading}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Xóa
+                    </Button>
                   )}
                 </div>
               </CardContent>
@@ -427,27 +465,38 @@ export default function AdminVideosPage() {
             </div>
           </div>
 
-          {previewVideo?.status === "pending" && (
-            <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                onClick={() => { setRejectDialogVideo(previewVideo); setRejectReason(""); }}
-                disabled={actionLoading}
-                className="gap-1 text-destructive hover:bg-destructive/10 border-destructive/20"
-              >
-                <XCircle className="w-4 h-4" />
-                Từ chối
-              </Button>
-              <Button
-                className="gap-1 bg-green-600 hover:bg-green-700 text-white"
-                onClick={() => previewVideo && handleApprove(previewVideo)}
-                disabled={actionLoading}
-              >
-                <CheckCircle className="w-4 h-4" />
-                {actionLoading ? "Đang xử lý..." : "Phê duyệt"}
-              </Button>
-            </DialogFooter>
-          )}
+          <DialogFooter className="gap-2 pt-2 border-t">
+            <Button
+              variant="destructive"
+              className="gap-1 mr-auto text-xs h-9"
+              onClick={() => previewVideo && handleDeleteVideo(previewVideo)}
+              disabled={actionLoading}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Xóa bài viết
+            </Button>
+            {previewVideo?.status === "pending" && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => { setRejectDialogVideo(previewVideo); setRejectReason(""); }}
+                  disabled={actionLoading}
+                  className="gap-1 text-destructive hover:bg-destructive/10 border-destructive/20 text-xs h-9"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  Từ chối
+                </Button>
+                <Button
+                  className="gap-1 bg-green-600 hover:bg-green-700 text-white text-xs h-9"
+                  onClick={() => previewVideo && handleApprove(previewVideo)}
+                  disabled={actionLoading}
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Phê duyệt
+                </Button>
+              </>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -197,3 +197,24 @@ def share_post_endpoint(
     user_id = current_user.id if current_user else None
     return services.share_post(db=db, video_id=video_id, user_id=user_id)
 
+
+@router.post(
+    "/videos/{video_id}/report",
+    response_model=schemas.ReportResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Báo cáo vi phạm bài đăng (Report)",
+    description="Gửi báo cáo vi phạm cho bài viết/video. Yêu cầu đăng nhập."
+)
+def report_video_endpoint(
+    video_id: int,
+    report_data: schemas.VideoReportCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return services.create_video_report(
+        db=db,
+        video_id=video_id,
+        user_id=current_user.id,
+        reason=report_data.reason
+    )
+
